@@ -142,7 +142,7 @@ check the buttons.
 | `mqtt_broker`, `mqtt_port`, `mqtt_username`, `mqtt_password`, `mqtt_topic_prefix`, `ha_discovery_prefix` | Home Assistant connection; empty broker = no MQTT |
 | `log_verbosity` | 0-3 |
 
-The game has no time penalty by design: `penalty_seconds`, left in older files, is ignored.
+The game has no time penalty by design; a `penalty_seconds` left in an older `config.json` is ignored and hidden from the web page.
 
 There are three ways to change the configuration, all of which end in the same file:
 

@@ -1,7 +1,6 @@
 {
     "timer_duration_sec": 3600,
     "trap_pause_seconds": 2,
-    "penalty_seconds": 120,
     "accel_multiplier": 3,
     "victory_timeout_sec": 600,
     "brightness_pct": 80,

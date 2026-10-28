@@ -9,7 +9,6 @@ Config Config::defaults() {
     Config c;
     c.timer_duration_sec = 60;
     c.trap_pause_seconds = 3;
-    c.penalty_seconds = 120;
     c.accel_multiplier = 2;
     c.victory_timeout_sec = 600;
     c.brightness_pct = 80;
@@ -34,7 +33,6 @@ bool Config::load(const std::string& path) {
         json j = json::parse(f);
         timer_duration_sec = j.value("timer_duration_sec", 120);
         trap_pause_seconds = j.value("trap_pause_seconds", 3);
-        penalty_seconds = j.value("penalty_seconds", 120);
         accel_multiplier = j.value("accel_multiplier", 2);
         victory_timeout_sec = j.value("victory_timeout_sec", 30);
         brightness_pct = j.value("brightness_pct", 80);
@@ -76,7 +74,6 @@ std::string Config::to_json_string() const {
     json j;
     j["timer_duration_sec"] = timer_duration_sec;
     j["trap_pause_seconds"] = trap_pause_seconds;
-    j["penalty_seconds"] = penalty_seconds;
     j["accel_multiplier"] = accel_multiplier;
     j["victory_timeout_sec"] = victory_timeout_sec;
     j["brightness_pct"] = brightness_pct;

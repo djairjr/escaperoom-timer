@@ -15,7 +15,6 @@ struct SoundFiles {
 struct Config {
     int timer_duration_sec = 120;
     int trap_pause_seconds = 3;
-    int penalty_seconds = 120;
     int accel_multiplier = 2;
     int victory_timeout_sec = 600;
     int brightness_pct = 80;

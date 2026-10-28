@@ -43,7 +43,7 @@ KNOWN_BOOL_FIELDS = {
 # then the game duration showed up near the end of the page. Keys not listed keep the file order,
 # after these.
 FIELD_ORDER = [
-    'timer_duration_sec', 'accel_multiplier', 'trap_pause_seconds', 'penalty_seconds',
+    'timer_duration_sec', 'accel_multiplier', 'trap_pause_seconds',
     'victory_timeout_sec', 'room_name', 'idle_message', 'victory_message', 'game_over_message',
     'brightness_pct', 'sounds_enabled', 'sound_volume', 'background_music_enabled',
     'custom_sounds_enabled', 'sound_files', 'mqtt_broker', 'mqtt_port', 'mqtt_username',
@@ -52,9 +52,14 @@ FIELD_ORDER = [
 ]
 
 
+# Keys older config.json files may still carry that the game no longer uses; never shown in the form.
+LEGACY_KEYS = {'penalty_seconds'}
+
+
 def _ordered_items(data):
     rank = {key: i for i, key in enumerate(FIELD_ORDER)}
-    return sorted(data.items(), key=lambda kv: rank.get(kv[0], len(FIELD_ORDER)))
+    return sorted(((k, v) for k, v in data.items() if k not in LEGACY_KEYS),
+                  key=lambda kv: rank.get(kv[0], len(FIELD_ORDER)))
 
 
 class FieldSchema:
