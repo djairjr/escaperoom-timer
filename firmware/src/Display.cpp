@@ -3,6 +3,8 @@
 #include <iostream>
 #include <cmath>
 #include <cstdlib>
+#include <algorithm>
+#include <vector>
 #include <fstream>
 #include <glob.h>
 #include <fcntl.h>
@@ -224,21 +226,85 @@ void Display::render_time(int minutes, int seconds, int speed_mult, GameState st
     SDL_RenderPresent(renderer);
 }
 
-/* break_words: turn spaces AND literal backslash-n into real newlines */
-static std::string break_words(const std::string& msg) {
-    /* Handle "\\n" two-char sequence from JSON */
-    std::string out;
+/* Lines of a screen message. "\\n" (backslash, n) typed in the web page and real newlines are the
+ * line breaks the user asked for; without any, the text is wrapped at spaces only when it does not fit. */
+static std::vector<std::string> split_message(const std::string& msg, TTF_Font* font, int max_w) {
+    std::string text;
     for (size_t i = 0; i < msg.size(); i++) {
-        if (msg[i] == '\\' && i + 1 < msg.size() && msg[i + 1] == 'n') {
-            out += '\n';
-            i++;
-        } else if (msg[i] == ' ') {
-            out += '\n';
-        } else {
-            out += msg[i];
+        if (msg[i] == '\\') {
+            // one or more backslashes followed by n (an escaped "\\n" survives some editors): a break
+            size_t j = i;
+            while (j < msg.size() && msg[j] == '\\') j++;
+            if (j < msg.size() && msg[j] == 'n') { text += '\n'; i = j; }
+            else text += msg[i];
         }
+        else if (msg[i] != '\r') text += msg[i];
     }
-    return out;
+    std::vector<std::string> lines;
+    size_t pos = 0;
+    while (pos <= text.size()) {
+        size_t nl = text.find('\n', pos);
+        std::string para = text.substr(pos, nl == std::string::npos ? std::string::npos : nl - pos);
+        std::string cur;
+        size_t p = 0;
+        while (p <= para.size()) {
+            size_t sp = para.find(' ', p);
+            std::string word = para.substr(p, sp == std::string::npos ? std::string::npos : sp - p);
+            std::string trial = cur.empty() ? word : cur + " " + word;
+            int w = 0;
+            if (!cur.empty() && font) TTF_SizeUTF8(font, trial.c_str(), &w, nullptr);
+            if (!cur.empty() && w > max_w) { lines.push_back(cur); cur = word; }
+            else cur = trial;
+            if (sp == std::string::npos) break;
+            p = sp + 1;
+        }
+        lines.push_back(cur);
+        if (nl == std::string::npos) break;
+        pos = nl + 1;
+    }
+    return lines;
+}
+
+/* Draws msg centred on the screen. The font shrinks (down to 40% of base_size) until every line fits
+ * the width and all lines fit the height. */
+void Display::draw_message(const std::string& msg, SDL_Color c, int base_size) {
+    const char* font_path = "/usr/share/fonts/truetype/DSEG14Classic-Regular.ttf";
+    int max_w = width * 92 / 100, max_h = height * 90 / 100;
+    for (int sz = base_size; ; sz = sz * 9 / 10) {
+        TTF_Font* f = TTF_OpenFont(font_path, sz);
+        if (!f) return;
+        std::vector<std::string> lines = split_message(msg, f, max_w);
+        int line_h = sz + sz / 6, widest = 0;
+        for (const std::string& l : lines) {
+            int w = 0;
+            if (!l.empty()) TTF_SizeUTF8(f, l.c_str(), &w, nullptr);
+            widest = std::max(widest, w);
+        }
+        int total_h = line_h * (int)lines.size() - (line_h - sz);
+        if ((widest <= max_w && total_h <= max_h) || sz <= base_size * 4 / 10) {
+            int y = (height - total_h) / 2;
+            for (const std::string& l : lines) {
+                if (!l.empty()) {
+                    int w = 0;
+                    TTF_SizeUTF8(f, l.c_str(), &w, nullptr);
+                    SDL_Surface* surf = TTF_RenderUTF8_Blended(f, l.c_str(), c);
+                    if (surf) {
+                        SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
+                        if (tex) {
+                            SDL_Rect dst = {(width - w) / 2, y, surf->w, surf->h};
+                            SDL_RenderCopy(renderer, tex, nullptr, &dst);
+                            SDL_DestroyTexture(tex);
+                        }
+                        SDL_FreeSurface(surf);
+                    }
+                }
+                y += line_h;
+            }
+            TTF_CloseFont(f);
+            return;
+        }
+        TTF_CloseFont(f);
+    }
 }
 
 void Display::render_victory(const std::string& msg) {
@@ -246,46 +312,7 @@ void Display::render_victory(const std::string& msg) {
     if (!renderer) return;
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
-
-    SDL_Color c = {255, 255, 0, 255};  // same yellow as the running clock and the speed-up message
-
-    std::string broken = break_words(msg);
-    size_t nl = broken.find('\n');
-    std::string line1, line2;
-    if (nl != std::string::npos) {
-        line1 = broken.substr(0, nl);
-        line2 = broken.substr(nl + 1);
-    } else {
-        line1 = broken;
-    }
-
-    int tw1 = 0, tw2 = 0, th1 = 0, th2 = 0;
-    int font_sz = ui(100);
-    TTF_Font* f1 = TTF_OpenFont("/usr/share/fonts/truetype/DSEG14Classic-Regular.ttf", font_sz);
-    if (f1) {
-        TTF_SizeUTF8(f1, line1.c_str(), &tw1, &th1);
-        TTF_CloseFont(f1);
-    }
-    if (!line2.empty()) {
-        TTF_Font* f2 = TTF_OpenFont("/usr/share/fonts/truetype/DSEG14Classic-Regular.ttf", font_sz);
-        if (f2) {
-            TTF_SizeUTF8(f2, line2.c_str(), &tw2, &th2);
-            TTF_CloseFont(f2);
-        }
-    }
-
-    int line_h = font_sz + ui(20);
-    int total_h = line2.empty() ? font_sz : font_sz + line_h;
-    int start_y = (height - total_h) / 2;
-
-    int x1 = (width - tw1) / 2;
-    render_text(line1, x1, start_y, c, font_sz);
-
-    if (!line2.empty()) {
-        int x2 = (width - tw2) / 2;
-        render_text(line2, x2, start_y + line_h, c, font_sz);
-    }
-
+    draw_message(msg, SDL_Color{255, 255, 0, 255}, ui(100));  // same yellow as the running clock
     SDL_RenderPresent(renderer);
 }
 
@@ -294,42 +321,8 @@ void Display::render_game_over(const std::string& msg) {
     if (!renderer) return;
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
-
     int flash = (SDL_GetTicks() / 200) % 2;
-    SDL_Color c = flash ? SDL_Color{255, 0, 0, 255} : SDL_Color{180, 0, 0, 255};
-
-    std::string broken = break_words(msg);
-    size_t nl = broken.find('\n');
-    std::string line1, line2;
-    if (nl != std::string::npos) {
-        line1 = broken.substr(0, nl);
-        line2 = broken.substr(nl + 1);
-    } else {
-        line1 = broken;
-    }
-    int tw1 = 0, th1 = 0, tw2 = 0, th2 = 0;
-    int font_sz = ui(100);
-    TTF_Font* f = TTF_OpenFont("/usr/share/fonts/truetype/DSEG14Classic-Regular.ttf", font_sz);
-    if (f) {
-        TTF_SizeUTF8(f, line1.c_str(), &tw1, &th1);
-        TTF_CloseFont(f);
-    }
-    if (!line2.empty()) {
-        f = TTF_OpenFont("/usr/share/fonts/truetype/DSEG14Classic-Regular.ttf", font_sz);
-        if (f) {
-            TTF_SizeUTF8(f, line2.c_str(), &tw2, &th2);
-            TTF_CloseFont(f);
-        }
-    }
-    int line_h = font_sz + ui(20);
-    int total_h = line2.empty() ? font_sz : font_sz + line_h;
-    int start_y = (height - total_h) / 2;
-    int x1 = (width - tw1) / 2;
-    render_text(line1, x1, start_y, c, font_sz);
-    if (!line2.empty()) {
-        int x2 = (width - tw2) / 2;
-        render_text(line2, x2, start_y + line_h, c, font_sz);
-    }
+    draw_message(msg, flash ? SDL_Color{255, 0, 0, 255} : SDL_Color{180, 0, 0, 255}, ui(100));
     SDL_RenderPresent(renderer);
 }
 
@@ -338,46 +331,7 @@ void Display::render_ready(const std::string& room_name, const std::string& idle
     if (!renderer) return;
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
-
-    std::string broken = break_words(idle_msg);
-    size_t nl = broken.find('\n');
-    std::string line1, line2;
-    if (nl != std::string::npos) {
-        line1 = broken.substr(0, nl);
-        line2 = broken.substr(nl + 1);
-    } else {
-        line1 = broken;
-    }
-
-    SDL_Color green = {0, 200, 0, 255};
-
-    int tw1 = 0, th1 = 0, tw2 = 0, th2 = 0;
-    int font_sz = ui(120);
-    TTF_Font* f1 = TTF_OpenFont("/usr/share/fonts/truetype/DSEG14Classic-Regular.ttf", font_sz);
-    if (f1) {
-        TTF_SizeUTF8(f1, line1.c_str(), &tw1, &th1);
-        TTF_CloseFont(f1);
-    }
-    if (!line2.empty()) {
-        TTF_Font* f2 = TTF_OpenFont("/usr/share/fonts/truetype/DSEG14Classic-Regular.ttf", font_sz);
-        if (f2) {
-            TTF_SizeUTF8(f2, line2.c_str(), &tw2, &th2);
-            TTF_CloseFont(f2);
-        }
-    }
-
-    int line_h = font_sz + ui(20);
-    int total_h = line2.empty() ? font_sz : font_sz + line_h;
-    int start_y = (height - total_h) / 2;
-
-    int x1 = (width - tw1) / 2;
-    render_text(line1, x1, start_y, green, font_sz);
-
-    if (!line2.empty()) {
-        int x2 = (width - tw2) / 2;
-        render_text(line2, x2, start_y + line_h, green, font_sz);
-    }
-
+    draw_message(idle_msg, SDL_Color{0, 200, 0, 255}, ui(120));
     SDL_RenderPresent(renderer);
 }
 

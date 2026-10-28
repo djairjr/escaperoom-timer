@@ -5,8 +5,10 @@ puzzle_configurator/routes.py — Rotas da API REST e Páginas
 Autenticação: POST /login com cookie httponly. NUNCA na URL.
 """
 
+import html
 import json
 import os
+import re
 import socket
 import time
 import logging
@@ -14,12 +16,30 @@ from flask import request, jsonify, current_app, make_response, redirect
 
 from .form_generator import FormGenerator
 from .config_manager import ConfigManager
+from .i18n import Translator, detect_language
+
+# Settings whose text is drawn on the TV: a typed "\n" means a line break.
+MESSAGE_KEYS = ('idle_message', 'victory_message', 'game_over_message', 'room_name')
 
 logger = logging.getLogger(__name__)
 
 
 def _get_setup(key, default=None):
     return current_app.config.get('SETUP', {}).get(key, default)
+
+
+def _tr():
+    """Translator for the language of the current request."""
+    return Translator(detect_language(request, current_app.config.get('SETUP', {})))
+
+
+def _remember_language(resp):
+    """?lang=xx on any page sticks through a cookie."""
+    code = request.args.get('lang')
+    if code:
+        resp.set_cookie('lang', detect_language(request, current_app.config.get('SETUP', {})),
+                        max_age=31536000, samesite='Lax')
+    return resp
 
 
 def _get_config_manager():
@@ -63,7 +83,7 @@ def register_routes(app):
                            max_age=86400, httponly=True, samesite='Lax')
             return resp
         
-        return render_login_page(error='Senha incorreta' if password else None)
+        return render_login_page(error='login.wrong' if password else None)
 
     @app.route('/logout', methods=['POST'])
     def logout():
@@ -89,8 +109,8 @@ def register_routes(app):
             cm = _get_config_manager()
             config_data = cm.read()
             gen = FormGenerator()
-            html = gen.generate(config_data)
-            return html
+            html = gen.generate(config_data, tr=_tr())
+            return _remember_language(make_response(html))
         except Exception as e:
             logger.error(f"Erro na página principal: {e}")
             return f"<h1>Erro</h1><p>{e}</p>", 500
@@ -113,6 +133,11 @@ def register_routes(app):
             # Merge: preserva campos que o formulario nao exibe
             # (sound_files, mqtt_*, gpio_out_desarmado, ha_discovery_prefix)
             existing = cm.read()
+            # A typed "\\n" (backslash, n) in a screen message becomes a real line break, so config.json
+            # holds one meaning only and the page shows it as a line break.
+            for key in MESSAGE_KEYS:
+                if isinstance(new_data.get(key), str):
+                    new_data[key] = re.sub(r'\\+n', '\n', new_data[key]).replace('\r\n', '\n')
             merged = dict(existing)
             # Sobrescreve apenas os campos enviados, preserva o resto
             for k, v in new_data.items():
@@ -215,29 +240,30 @@ def register_routes(app):
         try:
             setup = current_app.config.get('SETUP', {})
             cm = _get_config_manager()
+            tr = _tr()
             status_data = {
-                'Projeto': setup.get('project_name', 'N/A'),
-                'Config': 'OK' if os.path.exists(setup.get('config_path', '')) else 'ausente',
-                'Servico': setup.get('service_name', 'N/A'),
-                'Arquivos de Som': f"{len(cm.get_sfx_list())} arquivos",
-                'Versao': '1.0.0',
+                tr.t('status.project'): setup.get('project_name', 'N/A'),
+                tr.t('status.config'): tr.t('status.config_ok') if os.path.exists(setup.get('config_path', '')) else tr.t('status.config_missing'),
+                tr.t('status.service'): setup.get('service_name', 'N/A'),
+                tr.t('status.sounds'): tr.t('status.sounds_value', len(cm.get_sfx_list())),
+                tr.t('status.version'): '1.0.0',
             }
             import subprocess
             service = setup.get('service_name', '')
             if service:
                 r = subprocess.run(['systemctl', 'is-active', service],
                                  capture_output=True, text=True, timeout=5)
-                status_data['Status Puzzle'] = r.stdout.strip()
+                status_data[tr.t('status.puzzle')] = r.stdout.strip()
             
             # IP e Uptime
             r = subprocess.run(['ip', '-4', 'addr', 'show', 'end0'],
                              capture_output=True, text=True, timeout=5)
             import re
             m = re.search(r'inet\s+(\d+\.\d+\.\d+\.\d+)', r.stdout)
-            status_data['IP'] = m.group(1) if m else 'N/A'
+            status_data[tr.t('status.ip')] = m.group(1) if m else 'N/A'
             
             r = subprocess.run(['uptime', '-p'], capture_output=True, text=True, timeout=5)
-            status_data['Uptime'] = r.stdout.strip().replace('up ', '') if r.stdout else 'N/A'
+            status_data[tr.t('status.uptime')] = r.stdout.strip().replace('up ', '') if r.stdout else 'N/A'
             
             return jsonify(status_data)
         except Exception as e:
@@ -290,36 +316,42 @@ def register_routes(app):
 
     # === PÁGINA DE LOGIN ===
     def render_login_page(error=None):
+        tr = _tr()
+        h = lambda key: html.escape(tr.t(key))
         error_html = ''
         if error:
-            error_html = f'<p class="error" style="text-align:center;margin-bottom:12px">{error}</p>'
-        return f'''<!DOCTYPE html>
-<html lang="pt-BR">
+            error_html = f'<p class="error" style="text-align:center;margin-bottom:12px">{h(error)}</p>'
+        options = ''.join('<option value="%s"%s>%s</option>' % (html.escape(c), ' selected' if c == tr.lang else '', html.escape(n))
+                          for c, n in tr.languages())
+        page = f'''<!DOCTYPE html>
+<html lang="{tr.lang}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Configurador - Login</title>
+    <title>{h('login.title')}</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container login-page">
         <header>
             <img src="/static/logoNicolaudosBrinquedos.svg" alt="Nicolau dos Brinquedos" class="logo">
-            <h1>Configurações</h1>
+            <h1>{h('login.heading')}</h1>
             <p class="subtitle">Nicolau dos Brinquedos &nbsp; @nicolaudosbrinquedos</p>
+            <label class="lang-picker">{h('lang.label')}: <select onchange="document.cookie='lang='+this.value+';path=/;max-age=31536000;SameSite=Lax';location.reload()">{options}</select></label>
         </header>
         {error_html}
         <form method="POST" action="/login" class="login-form">
             <div class="form-group">
-                <label for="password">Senha de Configuração</label>
+                <label for="password">{h('login.password')}</label>
                 <input type="password" id="password" name="password" 
-                       placeholder="Digite a senha" class="form-input" required autofocus>
+                       placeholder="{h('login.placeholder')}" class="form-input" required autofocus>
             </div>
-            <button type="submit" class="btn btn-primary">Entrar</button>
+            <button type="submit" class="btn btn-primary">{h('login.enter')}</button>
         </form>
     </div>
 </body>
 </html>'''
+        return _remember_language(make_response(page))
 
     # === CORS (apenas para static files) ===
     @app.after_request

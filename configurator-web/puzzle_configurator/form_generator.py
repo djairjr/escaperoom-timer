@@ -7,24 +7,33 @@ Renderiza inputs, checkboxes, file uploads, selects, sections com accordion.
 """
 
 import html as html_mod
+import json
 import os
 from .json_parser import JsonParser
+from .i18n import Translator
 
 
 class FormGenerator:
     """Gera HTML de formulário a partir do schema de campos."""
     
-    def generate(self, config_data, logo_path='/static/logoNicolaudosBrinquedos.svg'):
+    def generate(self, config_data, logo_path='/static/logoNicolaudosBrinquedos.svg', tr=None):
         """
         Gera página HTML completa com formulário dinâmico.
         
         Args:
             config_data: dict completo do config.json
             logo_path: path para o logo SVG
+            tr: i18n.Translator of the request's language (English when omitted)
         
         Returns:
             string HTML
         """
+        self.tr = tr or Translator()
+        h = lambda key, *a: html_mod.escape(self.tr.t(key, *a))
+        js_json = json.dumps(self.tr.js(), ensure_ascii=False).replace('</', '<\\/')
+        lang_options = ''.join(
+            '<option value="%s"%s>%s</option>' % (html_mod.escape(c), ' selected' if c == self.tr.lang else '', html_mod.escape(n))
+            for c, n in self.tr.languages())
         parser = JsonParser()
         all_fields = parser.parse_to_dicts(config_data)
         
@@ -51,11 +60,11 @@ class FormGenerator:
         wifi_html = self._render_wifi_tab(mqtt_fields, config_data)
         
         return f'''<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="{self.tr.lang}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Configurador de Puzzle</title>
+    <title>{h('page.title')}</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" type="image/svg+xml" href="{logo_path}">
     <meta http-equiv="refresh" content="300">
@@ -64,36 +73,35 @@ class FormGenerator:
     <div class="container">
         <header>
             <img src="{logo_path}" alt="Nicolau dos Brinquedos" class="logo" id="logo-anim">
-            <h1>Configurações</h1>
+            <h1>{h('page.heading')}</h1>
+            <label class="lang-picker">{h('lang.label')}: <select id="lang-select" onchange="setLanguage(this.value)">{lang_options}</select></label>
             <p class="subtitle">Nicolau dos Brinquedos &nbsp; @nicolaudosbrinquedos</p>
         </header>
         
         <nav class="tabs">
-            <button class="tab active" data-tab="game">Jogo</button>
-            <button class="tab" data-tab="config">Configuração</button>
-            <button class="tab" data-tab="sounds">Sons</button>
-            <button class="tab" data-tab="wifi">WiFi / HA</button>
-            <button class="tab" data-tab="status">Status</button>
+            <button class="tab active" data-tab="game">{h('tab.game')}</button>
+            <button class="tab" data-tab="config">{h('tab.config')}</button>
+            <button class="tab" data-tab="sounds">{h('tab.sounds')}</button>
+            <button class="tab" data-tab="wifi">{h('tab.wifi')}</button>
+            <button class="tab" data-tab="status">{h('tab.status')}</button>
         </nav>
         
         <div id="tab-game" class="tab-content active">
-            <h2>Controle do jogo</h2>
-            <p id="game-state" class="hint">Carregando...</p>
+            <h2>{h('game.heading')}</h2>
+            <p id="game-state" class="hint">{h('game.loading')}</p>
             <div class="form-actions">
-                <button type="button" id="play-btn" class="btn btn-primary" onclick="control('play')" disabled>Play</button>
+                <button type="button" id="play-btn" class="btn btn-primary" onclick="control('play')" disabled>{h('game.play')}</button>
                 <label class="switch-row">
                     <span class="switch">
                         <input type="checkbox" id="accel-sw" onchange="control('accel')" disabled>
                         <span class="slider"></span>
                     </span>
-                    <span id="accel-label">Aceleração</span>
+                    <span id="accel-label">{h('game.accel')}</span>
                 </label>
-                <button type="button" id="stop-btn" class="btn btn-secondary" onclick="control('stop')" disabled>Stop</button>
-                <button type="button" id="reset-btn" class="btn btn-secondary" onclick="control('reset')" disabled>Reset</button>
+                <button type="button" id="stop-btn" class="btn btn-secondary" onclick="control('stop')" disabled>{h('game.stop')}</button>
+                <button type="button" id="reset-btn" class="btn btn-secondary" onclick="control('reset')" disabled>{h('game.reset')}</button>
             </div>
-            <p class="hint">Play equivale ao botão verde (START). O interruptor de aceleração equivale aos botões azul e
-            amarelo: ligado, o tempo corre acelerado; desligado, a 1x (TIME TRAP). Stop equivale ao botão vermelho
-            (libera o acesso). Reset volta o timer à condição inicial.</p>
+            <p class="hint">{h('game.hint')}</p>
         </div>
 
         <div id="tab-config" class="tab-content">
@@ -103,8 +111,8 @@ class FormGenerator:
         </div>
         
         <div id="tab-sounds" class="tab-content">
-            <h2>Upload de Sons</h2>
-            <p class="hint">Selecione o canal e faça upload do arquivo.</p>
+            <h2>{h('sounds.heading')}</h2>
+            <p class="hint">{h('sounds.hint')}</p>
             <div id="sound-uploads">
                 {sounds_html}
             </div>
@@ -115,21 +123,32 @@ class FormGenerator:
         </div>
         
         <div id="tab-status" class="tab-content">
-            <h2>Status do Sistema</h2>
+            <h2>{h('status.heading')}</h2>
             <div id="system-status">
-                <div class="loading">Carregando...</div>
+                <div class="loading">{h('loading')}</div>
             </div>
         </div>
         
         <div class="form-actions-global">
-            <button type="button" class="btn btn-primary" onclick="saveActiveTab()">Salvar Configuração</button>
-            <button type="button" class="btn btn-secondary" onclick="reloadPuzzle()">Recarregar Puzzle</button>
+            <button type="button" class="btn btn-primary" onclick="saveActiveTab()">{h('btn.save')}</button>
+            <button type="button" class="btn btn-secondary" onclick="reloadPuzzle()">{h('btn.reload')}</button>
         </div>
         
         <div id="toast" class="toast hidden"></div>
     </div>
     
     <script>
+    var I18N = {js_json};
+    function L(k) {{
+        var s = I18N[k] || k;
+        for (var i = 1; i < arguments.length; i++) s = s.replace('{{' + (i - 1) + '}}', arguments[i]);
+        return s;
+    }}
+    function setLanguage(code) {{
+        document.cookie = 'lang=' + code + ';path=/;max-age=31536000;SameSite=Lax';
+        location.reload();
+    }}
+
     function toast(msg, type) {{
         var t = document.getElementById('toast');
         t.textContent = msg;
@@ -146,7 +165,7 @@ class FormGenerator:
             try {{ data = JSON.parse(xhr.responseText); }} catch(e) {{ data = xhr.responseText; }}
             callback(data, xhr.status);
         }};
-        xhr.onerror = function() {{ toast('Erro de conexao', 'error'); }};
+        xhr.onerror = function() {{ toast(L('js.conn_error'), 'error'); }};
         if (body) xhr.send(JSON.stringify(body));
         else xhr.send();
     }}
@@ -178,8 +197,8 @@ class FormGenerator:
         }});
         
         api('POST', '/api/config', data, function(resp, status) {{
-            if (status === 200) toast('Configuracao salva!', 'success');
-            else toast('Erro: ' + JSON.stringify(resp), 'error');
+            if (status === 200) toast(L('js.saved'), 'success');
+            else toast(L('js.error', JSON.stringify(resp)), 'error');
         }});
     }}
     
@@ -221,16 +240,16 @@ class FormGenerator:
         }});
         
         api('POST', '/api/config', data, function(resp, status) {{
-            if (status === 200) toast('Configuracao salva!', 'success');
-            else toast('Erro: ' + JSON.stringify(resp), 'error');
+            if (status === 200) toast(L('js.saved'), 'success');
+            else toast(L('js.error', JSON.stringify(resp)), 'error');
         }});
         return false;
     }}
     
     function reloadPuzzle() {{
         api('POST', '/api/reload', {{}}, function(resp, status) {{
-            if (status === 200) toast('Puzzle recarregado!', 'success');
-            else toast('Erro: ' + JSON.stringify(resp), 'error');
+            if (status === 200) toast(L('js.reloaded'), 'success');
+            else toast(L('js.error', JSON.stringify(resp)), 'error');
         }});
     }}
     
@@ -239,7 +258,7 @@ class FormGenerator:
             var field = this.dataset.field;
             var input = document.getElementById('file-' + field.replace(/\\./g, '-'));
             var file = input.files[0];
-            if (!file) {{ toast('Selecione um arquivo', 'warning'); return; }}
+            if (!file) {{ toast(L('js.choose_file'), 'warning'); return; }}
             
             var formData = new FormData();
             formData.append('file', file);
@@ -249,10 +268,10 @@ class FormGenerator:
             xhr.onload = function() {{
                 try {{
                     var resp = JSON.parse(xhr.responseText);
-                    if (xhr.status === 200) toast(resp.message || 'Upload OK!', 'success');
-                    else toast('Erro: ' + (resp.error || xhr.responseText), 'error');
+                    if (xhr.status === 200) toast(resp.message || L('js.upload_ok'), 'success');
+                    else toast(L('js.error', resp.error || xhr.responseText), 'error');
                 }} catch(e) {{
-                    toast('Upload concluido', 'success');
+                    toast(L('js.upload_done'), 'success');
                 }}
                 var label = document.getElementById('label-' + field.replace(/\\./g, '-'));
                 if (label) label.textContent = file.name;
@@ -263,19 +282,19 @@ class FormGenerator:
     
     function scanWiFi() {{
         var el = document.getElementById('wifi-scan-result');
-        el.innerHTML = '<div class="loading">Escaneando...</div>';
+        el.innerHTML = '<div class="loading">' + L('js.scanning') + '</div>';
         api('GET', '/api/wifi/scan', null, function(nets, status) {{
             if (status !== 200 || !nets || nets.length === 0) {{
-                el.innerHTML = '<p class="error">Nenhuma rede encontrada.</p>';
+                el.innerHTML = '<p class="error">' + L('js.no_networks') + '</p>';
                 return;
             }}
-            var html = '<table><tr><th>SSID</th><th>Sinal</th><th></th></tr>';
+            var html = '<table><tr><th>SSID</th><th>' + L('js.signal') + '</th><th></th></tr>';
             nets.forEach(function(n) {{
                 var sigClass = n.signal > -50 ? 'good' : (n.signal > -70 ? 'ok' : 'weak');
                 html += '<tr onclick="document.getElementById(\\'wifi-ssid\\').value=\\'' + n.ssid.replace(/'/g, "\\\\'") + '\\'">' +
                     '<td>' + n.ssid + '</td>' +
                     '<td><span class="signal-' + sigClass + '">' + n.signal + ' dBm</span></td>' +
-                    '<td><button class="btn-small">Usar</button></td></tr>';
+                    '<td><button class="btn-small">' + L('js.use') + '</button></td></tr>';
             }});
             html += '</table>';
             el.innerHTML = html;
@@ -285,14 +304,14 @@ class FormGenerator:
     function connectWiFi() {{
         var ssid = document.getElementById('wifi-ssid').value;
         var pass = document.getElementById('wifi-password').value;
-        if (!ssid) {{ toast('Digite o SSID', 'warning'); return; }}
-        if (!pass) {{ toast('Digite a senha', 'warning'); return; }}
+        if (!ssid) {{ toast(L('js.type_ssid'), 'warning'); return; }}
+        if (!pass) {{ toast(L('js.type_password'), 'warning'); return; }}
         
         api('POST', '/api/wifi/connect', {{ssid: ssid, password: pass}}, function(resp, status) {{
             if (status === 200 && resp.success) {{
-                toast('Conectado a ' + ssid + (resp.ip ? ' (' + resp.ip + ')' : ''), 'success');
+                toast(L('js.connected_to', ssid + (resp.ip ? ' (' + resp.ip + ')' : '')), 'success');
             }} else {{
-                toast('Erro: ' + (resp.error || 'falha na conexao'), 'error');
+                toast(L('js.error', resp.error || L('js.conn_failed')), 'error');
             }}
         }});
     }}
@@ -300,10 +319,10 @@ class FormGenerator:
     function toggleAP() {{
         api('POST', '/api/wifi/ap', {{}}, function(resp, status) {{
             if (status === 200 && resp.success) {{
-                toast('AP: ' + (resp.ssid || 'ativado'), 'success');
+                toast(L('js.ap', resp.ssid || L('js.ap_on')), 'success');
                 if (resp.ssid) document.getElementById('ap-ssid').textContent = resp.ssid;
             }} else {{
-                toast('Erro AP: ' + (resp.error || 'falha'), 'error');
+                toast(L('js.ap_error', resp.error || L('js.conn_failed')), 'error');
             }}
         }});
     }}
@@ -312,7 +331,7 @@ class FormGenerator:
         api('GET', '/api/status', null, function(data, code) {{
             var el = document.getElementById('system-status');
             if (code !== 200) {{
-                el.innerHTML = '<p class="error">Erro carregando status</p>';
+                el.innerHTML = '<p class="error">' + L('js.status_error') + '</p>';
                 return;
             }}
             var html = '';
@@ -339,28 +358,26 @@ class FormGenerator:
             play.disabled = accel.disabled = stop.disabled = reset.disabled = true;
             accel.checked = false;
             if (code !== 200 || !g.available) {{
-                info.textContent = 'Jogo indisponivel';
+                info.textContent = L('js.game_unavailable');
                 return;
             }}
-            var t = (g.remaining_s !== undefined) ? ' - restam ' + Math.floor(g.remaining_s / 60) + ':' + ('0' + (g.remaining_s % 60)).slice(-2) : '';
-            var names = {{idle: 'Aguardando o início do jogo', running_1x: 'Jogo a 1x, aguardando o primeiro botão',
-                         pause_initial: 'Início da aceleração', running_2x: 'Aceleração LIGADA',
-                         trap_held: 'Aceleração DESLIGADA (TIME TRAP ativo)', solved: 'Acesso liberado', game_over: 'Tempo esgotado'}};
-            info.textContent = (names[g.state] || g.state) + t;
+            var t = (g.remaining_s !== undefined) ? ' - ' + L('js.remaining', Math.floor(g.remaining_s / 60) + ':' + ('0' + (g.remaining_s % 60)).slice(-2)) : '';
+            var name = L('js.state.' + g.state);
+            info.textContent = name + t;
             play.disabled = !(g.state === 'idle' || g.state === 'solved' || g.state === 'game_over');
             accel.disabled = !(g.state === 'running_1x' || g.state === 'running_2x' || g.state === 'trap_held');
             accel.checked = (g.state === 'running_2x' || g.state === 'pause_initial');
-            accelLabel.textContent = 'Aceleração ' + (accel.checked ? 'ligada' : 'desligada');
+            accelLabel.textContent = accel.checked ? L('js.accel_on') : L('js.accel_off');
             reset.disabled = (g.state === 'idle');
             stop.disabled = !(g.state === 'running_1x' || g.state === 'pause_initial' || g.state === 'running_2x' || g.state === 'trap_held');
         }});
     }}
 
     function control(action) {{
-        if (action === 'stop' && !confirm('Liberar o acesso e encerrar o jogo?')) return;
-        if (action === 'reset' && !confirm('Reiniciar o timer para a condição inicial?')) return;
+        if (action === 'stop' && !confirm(L('js.confirm_stop'))) return;
+        if (action === 'reset' && !confirm(L('js.confirm_reset'))) return;
         api('POST', '/api/control', {{action: action}}, function(resp, code) {{
-            if (code !== 200) toast('Nao foi possivel enviar o comando', 'error');
+            if (code !== 200) toast(L('js.cmd_failed'), 'error');
             setTimeout(loadGame, 300);
         }});
     }}
@@ -371,14 +388,22 @@ class FormGenerator:
 </body>
 </html>'''
     
+    def _h(self, key, *args):
+        return html_mod.escape(self.tr.t(key, *args))
+
+    def _label(self, field):
+        """Field label in the page's language; the key-derived English label when none is translated."""
+        key = 'field.' + field.get('key', '')
+        return self.tr.t(key) if self.tr.has(key) else field['label']
+
     def _render_fields(self, fields, config_data, open_first=False):
         """Renderiza lista de campos como seção única."""
         if not fields:
-            return '<p class="hint">Nenhum campo configurável.</p>'
+            return '<p class="hint">' + html_mod.escape(self.tr.t('fields.empty')) + '</p>'
         
         html = ''
         open_attr = ' open' if open_first else ''
-        html += f'<details{open_attr}>\n<summary class="section-title">Geral</summary>\n<div class="section-body">\n'
+        html += f'<details{open_attr}>\n<summary class="section-title">{html_mod.escape(self.tr.t('section.general'))}</summary>\n<div class="section-body">\n'
         for fd in fields:
             html += self._render_field(fd, config_data)
         html += '</div>\n</details>\n'
@@ -390,27 +415,27 @@ class FormGenerator:
         for fd in mqtt_fields:
             mqtt_html += self._render_field(fd, config_data)
         
-        return f'''<h2>Conexao WiFi</h2>
+        return f'''<h2>{self._h('wifi.heading')}</h2>
 <div class="wifi-client">
-    <h3>Conectar a Rede WiFi</h3>
+    <h3>{self._h('wifi.connect_heading')}</h3>
     <div id="wifi-scan-result"></div>
-    <button type="button" class="btn btn-primary" onclick="scanWiFi()">Escanear Redes</button>
+    <button type="button" class="btn btn-primary" onclick="scanWiFi()">{self._h('wifi.scan')}</button>
     <div class="form-group">
-        <label for="wifi-ssid">SSID</label>
-        <input type="text" id="wifi-ssid" placeholder="Digite o SSID" class="form-input">
+        <label for="wifi-ssid">{self._h('wifi.ssid')}</label>
+        <input type="text" id="wifi-ssid" placeholder="{self._h('wifi.ssid_ph')}" class="form-input">
     </div>
     <div class="form-group">
-        <label for="wifi-password">Senha</label>
-        <input type="password" id="wifi-password" placeholder="Senha da rede WiFi" class="form-input">
+        <label for="wifi-password">{self._h('wifi.password')}</label>
+        <input type="password" id="wifi-password" placeholder="{self._h('wifi.password_ph')}" class="form-input">
     </div>
-    <button type="button" class="btn btn-primary" onclick="connectWiFi()">Conectar</button>
+    <button type="button" class="btn btn-primary" onclick="connectWiFi()">{self._h('wifi.connect')}</button>
 </div>
 <div class="wifi-ap">
-    <h3>Modo Access Point</h3>
-    <p class="hint">Ative o AP para configurar sem rede WiFi. SSID: <span id="ap-ssid">Nicolau-XXXX</span></p>
-    <button type="button" class="btn btn-warning" onclick="toggleAP()">Ativar/Desativar AP</button>
+    <h3>{self._h('wifi.ap_heading')}</h3>
+    <p class="hint">{self._h('wifi.ap_hint')} <span id="ap-ssid">Nicolau-XXXX</span></p>
+    <button type="button" class="btn btn-warning" onclick="toggleAP()">{self._h('wifi.ap_toggle')}</button>
 </div>
-<h2 style="margin-top:24px">Conexao MQTT / Home Assistant</h2>
+<h2 style="margin-top:24px">{self._h('wifi.mqtt_heading')}</h2>
 <div class="ha-fields">
     {mqtt_html}
 </div>'''
@@ -418,7 +443,7 @@ class FormGenerator:
     def _render_field(self, field, config_data):
         """Renderiza um campo individual."""
         path = field['path']
-        label = html_mod.escape(field['label'])
+        label = html_mod.escape(self._label(field))
         
         value = self._get_value(path, config_data)
         placeholder = html_mod.escape(str(value) if value is not None else '')
@@ -443,7 +468,7 @@ class FormGenerator:
     <label>{label}</label>
     <div class="file-input-row">
         <input type="file" id="file-{name}" accept="audio/*" class="file-input">
-        <button type="button" class="btn btn-small btn-upload sound-upload-btn" data-field="{html_mod.escape(path)}" data-path="{current_path}">Upload</button>
+        <button type="button" class="btn btn-small btn-upload sound-upload-btn" data-field="{html_mod.escape(path)}" data-path="{current_path}">{self._h('sounds.upload')}</button>
     </div>
     <input type="hidden" name="{html_mod.escape(path)}" value="{current_path}">
 </div>'''
@@ -457,7 +482,7 @@ class FormGenerator:
            placeholder="********" 
            data-original="{orig}"
            class="form-input">
-    <span class="hint">Deixe em branco para manter a senha atual</span>
+    <span class="hint">{self._h('field.hint.password')}</span>
 </div>'''
         
         if ft == 'text':
@@ -468,14 +493,16 @@ class FormGenerator:
               placeholder="{placeholder}"
               rows="2"
               class="form-input">{html_mod.escape(str(value) if value else '')}</textarea>
-    <span class="hint">Use \\n para pular linha no display</span>
+    <span class="hint">{self._h('field.hint.text')}</span>
 </div>'''
         
         if ft == 'number':
             min_v = field.get('min', 0)
             max_v = field.get('max', 999999)
             step_v = field.get('step', 1)
-            unit = ' ' + field.get('unit', '') if field.get('unit') else ''
+            unit = ''
+            if field.get('unit'):
+                unit = ' ' + (self.tr.t('unit.seconds') if field.get('unit') == 'segundos' else field['unit'])
             return f'''<div class="form-group">
     <label for="field-{html_mod.escape(path).replace('.', '-')}">{label}{unit}</label>
     <input type="number" id="field-{html_mod.escape(path).replace('.', '-')}" 
@@ -499,14 +526,14 @@ class FormGenerator:
         """Renderiza upload de sons sem exibir paths."""
         sounds = config_data.get('sound_files', {})
         if not sounds:
-            return '<p>Nenhum som configurado.</p>'
+            return '<p>' + html_mod.escape(self.tr.t('sounds.empty')) + '</p>'
         
         html = ''
         for key, path in sounds.items():
-            name = html_mod.escape(key)
+            name = html_mod.escape(self.tr.t('sound.' + key) if self.tr.has('sound.' + key) else key)
             field = f'sound_files.{key}'
             fid = field.replace('.', '-')
-            display_name = os.path.basename(str(path)) if path and '/' in str(path) else 'nenhum'
+            display_name = os.path.basename(str(path)) if path and '/' in str(path) else self.tr.t('sounds.none')
             html += f'''<div class="sound-upload-row">
     <div class="sound-info">
         <strong>{name}</strong>
@@ -514,7 +541,7 @@ class FormGenerator:
     </div>
     <div class="sound-actions">
         <input type="file" id="file-{fid}" accept="audio/*" class="file-input">
-        <button type="button" class="btn btn-small btn-upload sound-upload-btn" data-field="{html_mod.escape(field)}">Upload</button>
+        <button type="button" class="btn btn-small btn-upload sound-upload-btn" data-field="{html_mod.escape(field)}">{self._h('sounds.upload')}</button>
     </div>
 </div>'''
         return html

@@ -51,12 +51,12 @@ That is the trick of the room.
 ## Remote control from your phone or computer
 
 The game master can run the game from a browser, with the same effect as the room buttons. Open the
-**Jogo** tab of the web page (see [Connecting](#connecting-to-the-board) below):
+**Game** tab of the web page (**Jogo** in Portuguese) (see [Connecting](#connecting-to-the-board) below):
 
 | Control | Same as | What it does |
 |---|---|---|
 | **Play** | green button | starts the game; after a win or a loss, returns to the ready screen |
-| **Aceleração** (switch) | yellow and blue buttons | from 1x, switching it **on** starts the robbery (3 s freeze, then 2x). While running, **on** = 2x and **off** = TIME TRAP (1x); flip it again to return to 2x |
+| **Acceleration** switch (*Aceleração*) | yellow and blue buttons | from 1x, switching it **on** starts the robbery (3 s freeze, then 2x). While running, **on** = 2x and **off** = TIME TRAP (1x); flip it again to return to 2x |
 | **Stop** | red button | asks for confirmation, then ends the game as a win ("ACESSO LIBERADO", output high) |
 | **Reset** | - | asks for confirmation and puts the timer back in its initial condition from any state (ready screen, full time, output low), cutting any sound that is playing |
 
@@ -84,16 +84,20 @@ and the timer does not wait for them. The timer works the same with or without a
 
 ## Configuring the game
 
-Everything is edited in the web page (tabs **Configuração**, **Sons**, **WiFi / HA**, **Status**):
+Everything is edited in the web page (tabs **Game**, **Settings**, **Sounds**, **Wi-Fi / HA**, **Status**).
+The page speaks the language of your browser (English and Brazilian Portuguese; the selector at the top
+changes it). To add a language, copy `configurator-web/puzzle_configurator/locales/en.json` to
+`<code>.json`, translate the values and it appears in the selector; keys left out fall back to English.
+You can edit:
 game length, robbery speed, freeze time, screen texts, volume, sounds (upload your own), Wi-Fi and
-Home Assistant. **Salvar Configuração** applies it and restarts the timer. The most useful settings:
+Home Assistant. **Save settings** (*Salvar configuração*) applies it and restarts the timer. The most useful settings:
 
 | Setting | Meaning |
 |---|---|
 | `timer_duration_sec` | length of a game (3600 = 60 min) |
 | `accel_multiplier` | robbery speed, 1-10 (default 2) |
 | `trap_pause_seconds` | freeze after the first player button, 0-30 s (default 3) |
-| `room_name`, `idle_message`, `victory_message`, `game_over_message` | screen texts (`\n` breaks a line) |
+| `room_name`, `idle_message`, `victory_message`, `game_over_message` | screen texts: type `\n` (or press Enter) to start a new line on the TV; without it a long text wraps by itself and shrinks to fit |
 | `victory_timeout_sec` | seconds on the victory or game-over screen before returning to ready |
 | `sound_volume` (0-128), `sounds_enabled`, `background_music_enabled`, `sound_files.*` | sound; the TV's own volume still applies |
 

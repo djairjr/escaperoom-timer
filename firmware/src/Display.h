@@ -38,6 +38,7 @@ private:
     void close_video();
     static std::string read_connector();
     SDL_Color color_running(int pct);
+    void draw_message(const std::string& msg, SDL_Color c, int base_size);
     void render_text(const std::string& text, int x, int y, SDL_Color c, int sz);
     void render_text_small(const std::string& text, int x, int y, SDL_Color c, int sz);
 };

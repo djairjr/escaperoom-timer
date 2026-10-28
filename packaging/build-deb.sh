@@ -43,6 +43,9 @@ install -Dm755 configurator-web/scripts/timer-watcher.sh "$WEB/scripts/timer-wat
 for f in configurator-web/puzzle_configurator/*.py; do
     install -Dm644 "$f" "$WEB/puzzle_configurator/$(basename "$f")"
 done
+for f in configurator-web/puzzle_configurator/locales/*.json; do
+    install -Dm644 "$f" "$WEB/puzzle_configurator/locales/$(basename "$f")"
+done
 for f in configurator-web/static/*; do
     install -Dm644 "$f" "$WEB/static/$(basename "$f")"
 done
