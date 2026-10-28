@@ -12,9 +12,10 @@ and fill in the "X-Native-Name" header (the name in the page's language selector
 .po is read directly.
 
 Which language: the board's own locale, set with the usual Linux tools (`sudo dpkg-reconfigure locales`
-or `localectl set-locale LANG=pt_BR.UTF-8`): LANGUAGE, LC_ALL, LC_MESSAGES, LANG, then
-/etc/default/locale and /etc/locale.conf, then English. There is no language setting in the web page.
-Restart puzzle-configurator after changing the locale.
+or `sudo update-locale LANG=pt_BR.UTF-8 LANGUAGE=pt_BR:en LC_MESSAGES=pt_BR.UTF-8`): read from
+/etc/default/locale and /etc/locale.conf on every page load (so no restart), else from the environment,
+with the POSIX precedence LANGUAGE, LC_ALL, LC_MESSAGES, LANG; C means English. There is no language
+setting in the web page.
 """
 
 import os
@@ -28,6 +29,7 @@ LOCALE_DIRS = [
 ]
 SOURCE_LANG = 'en'
 _ESCAPES = {'n': '\n', 't': '\t', 'r': '\r', '"': '"', '\\': '\\'}
+LOCALE_FILES = os.environ.get('TIMER_LOCALE_FILES', '/etc/default/locale:/etc/locale.conf').split(':')
 _cache = {}
 
 
@@ -120,26 +122,34 @@ def match_language(wanted, codes=None):
     return None
 
 
+def _configured():
+    """Variables set in the system's locale files (/etc/default/locale, /etc/locale.conf), read live."""
+    found = {}
+    for path in LOCALE_FILES:
+        try:
+            with open(path) as f:
+                for line in f:
+                    m = re.match(r'\s*(LANGUAGE|LC_ALL|LC_MESSAGES|LANG)\s*=\s*"?([^"\s]+)', line)
+                    if m:
+                        found.setdefault(m.group(1), m.group(2))
+        except OSError:
+            pass
+    return found
+
+
 def system_locales():
     """The board's locale preference as gettext reads it: LANGUAGE (a list, ignored when the locale is
-    C/POSIX), else the first of LC_ALL, LC_MESSAGES, LANG that is set. /etc/default/locale and
-    /etc/locale.conf only count when the environment sets none of them."""
-    names = ('LANGUAGE', 'LC_ALL', 'LC_MESSAGES', 'LANG')
-    env = {v: os.environ.get(v, '') for v in names}
-    if not any(env[v] for v in names[1:]):
-        for path in ('/etc/default/locale', '/etc/locale.conf'):
-            try:
-                with open(path) as f:
-                    for line in f:
-                        m = re.match(r'\s*(LANGUAGE|LC_ALL|LC_MESSAGES|LANG)\s*=\s*"?([^"\s]+)', line)
-                        if m and not env[m.group(1)]:
-                            env[m.group(1)] = m.group(2)
-            except OSError:
-                pass
-    effective = next((env[v] for v in names[1:] if env[v]), '')
+    C/POSIX), else the first of LC_ALL, LC_MESSAGES, LANG that is set. What the system's locale files say
+    wins over the environment this service was started with, so a change made with update-locale or
+    dpkg-reconfigure locales shows on the next page load; LC_ALL in the environment still forces."""
+    files = _configured()
+    env = {v: os.environ.get(v, '') for v in ('LANGUAGE', 'LC_ALL', 'LC_MESSAGES', 'LANG')}
+    pick = {v: (files.get(v) or env[v]) for v in ('LANGUAGE', 'LC_MESSAGES', 'LANG')}
+    pick['LC_ALL'] = env['LC_ALL'] or files.get('LC_ALL', '')
+    effective = next((pick[v] for v in ('LC_ALL', 'LC_MESSAGES', 'LANG') if pick[v]), '')
     if not _normalize(effective):          # unset, C or POSIX: no translation
         return []
-    return [t for t in env['LANGUAGE'].split(':') if t] + [effective]
+    return [t for t in pick['LANGUAGE'].split(':') if t] + [effective]
 
 
 def detect_language():
