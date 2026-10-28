@@ -1,43 +1,110 @@
 # Escape Room Countdown Timer - Wifi Configurable
 
-A bomb-style countdown timer for escape rooms. It runs on an **Orange Pi PC Plus** (Armbian,
-Debian 13 trixie, armhf), draws the countdown full screen on an HDMI TV, plays sounds, reads four
-buttons wired into the room and closes a relay when the players win. A game master can also drive
-it from Home Assistant over MQTT.
+A bomb-style countdown timer for escape rooms. It shows a big countdown on a TV, plays sounds, reads
+the buttons wired into the room and closes a relay (door lock, siren, lights) when the players win.
+The game master runs it from the room buttons or from a phone browser.
 
-## The game
+**It is designed to work with any HDMI TV.** Plug the board into the TV's HDMI input and that is all:
+the picture uses the best resolution the TV offers (up to 1920x1080) and **the sound comes out of
+the TV's own speakers through the same HDMI cable** - no amplifier or speakers to buy. Set the volume
+with the TV's remote (and `sound_volume` in the settings). It runs on an **Orange Pi PC Plus**
+(Armbian, Debian 13 trixie, armhf).
 
-The players see a large seven-segment countdown (default 60:00) whose colour changes as time runs
-out. Four buttons are wired to the board:
+This first part is for **game masters**. Installers and developers: skip to
+[Wiring](#wiring) and below.
 
-| Button | Wire | Who presses it | Role |
+## How the timer works
+
+The players see a large seven-segment countdown (60:00 by default) whose colour changes as time runs
+out: green above 50% of the time left, then yellow, orange and a flashing red in the last 10%.
+
+1. **Ready.** The screen shows the room name and the idle message ("AMBIENTE SEGURO"); background
+   music plays. The game master presses **Play** (or the green button) to start.
+2. **Counting at 1x.** One second of countdown per real second, with a tick each second.
+3. **The first of the two player buttons pressed starts the robbery ("ROUBO").** The display freezes
+   for 3 seconds with an alarm, then the countdown runs at **2x** (red "2x" on screen). The other
+   player button becomes the **TIME TRAP**.
+4. **TIME TRAP.** While a player *holds* the trap button the countdown slows back to **1x** (green
+   "1x" on screen). Releasing it returns to 2x. It is the only way to slow the bomb down.
+5. **Win: STOP / DISARM.** Pressed at any time during the game, it stops the countdown, shows the
+   victory message ("ACESSO LIBERADO") in yellow, plays the victory sound and drives the output
+   **high** (relay, magnetic lock, siren, lights).
+6. **Lose: time runs out.** The screen shows the game-over message ("BOMBA EXPLODIU") and the
+   explosion sound plays; the output stays low.
+7. **Back to ready.** After the victory or game-over sound ends, Play (or the green button) returns
+   to the ready screen; otherwise it returns by itself after `victory_timeout_sec`.
+
+## The buttons
+
+Four buttons are wired to the board in the room:
+
+| Button | Wire | Who presses it | What it does |
 |---|---|---|---|
-| START | green | game master | starts the countdown; after a game, returns to the ready screen |
+| START / Play | green | game master | starts the countdown; after a game, returns to the ready screen |
 | A | yellow | players | one of two identical buttons in the room |
 | B | blue | players | the other identical button |
 | STOP / DISARM | red | players (hidden in the room) | defuses the bomb: the players win |
 
-**A and B look the same, but the first one pressed decides their roles.** That is the trick of the
-room:
+**A and B look the same, but the first one pressed decides their roles** (robbery and TIME TRAP).
+That is the trick of the room.
 
-1. **Ready.** The screen shows the room name and the idle message ("AMBIENTE SEGURO"); background
-   music plays. START begins the game.
-2. **Counting at 1x.** One second of countdown per real second, with a tick each second.
-3. **The first of A/B pressed becomes ROUBO (robbery).** The display freezes for `trap_pause_seconds`
-   (default 3 s) with an alarm, then the countdown runs at `accel_multiplier` times the normal speed
-   (default 2x), with a red "2x" (or "3x", ...) on screen.
-   The other button becomes the **TIME TRAP**.
-4. **TIME TRAP.** While a player *holds* the trap button the countdown slows back to **1x** (green
-   "1x" on screen). Releasing it returns to 2x. Holding it is the only way to slow the bomb down.
-5. **Win: STOP/DISARM.** Pressed at any time during the game, it stops the countdown, shows the
-   victory message ("ACESSO LIBERADO") flashing, plays the victory sound and drives the output
-   **high** (relay, magnetic lock, siren, lights).
-6. **Lose: time runs out.** The screen shows the game-over message ("BOMBA EXPLODIU") and the
-   explosion sound plays; the output stays low.
-7. **Back to ready.** After the victory/game-over sound ends, START (or a reset from Home Assistant)
-   returns to the ready screen; otherwise it does so by itself after `victory_timeout_sec`.
+## Remote control from your phone or computer
 
-Internally this is one state machine in `firmware/src/main.cpp`:
+The game master can run the game from a browser, with the same effect as the room buttons. Open the
+**Jogo** tab of the web page (see [Connecting](#connecting-to-the-board) below):
+
+| Control | Same as | What it does |
+|---|---|---|
+| **Play** | green button | starts the game; after a win or a loss, returns to the ready screen |
+| **Aceleração** (switch) | yellow and blue buttons | from 1x, switching it **on** starts the robbery (3 s freeze, then 2x). While running, **on** = 2x and **off** = TIME TRAP (1x); flip it again to return to 2x |
+| **Stop** | red button | asks for confirmation, then ends the game as a win ("ACESSO LIBERADO", output high) |
+| **Reset** | - | asks for confirmation and puts the timer back in its initial condition from any state (ready screen, full time, output low), cutting any sound that is playing |
+
+The page also shows the state and the time left. Controls that make no sense at the moment are greyed
+out (for example Play during a game). The room buttons keep working at the same time.
+
+## Connecting to the board
+
+> **The board's own Wi-Fi network is the way to connect and configure it.** It is on whenever the
+> board is not connected to a Wi-Fi network - **including when the Ethernet cable is plugged in** - so
+> a phone is all you need; no router or network at the site.
+
+1. Power the board. The Wi-Fi network `Nicolau-XXXX` (XXXX = last digits of its Wi-Fi address)
+   appears within seconds with the cable plugged in, or about 20 s after power-on without it.
+2. Join it from the phone. The password is the web page's (default `timersdl1234!`).
+3. Open `http://192.168.4.1` (any address leads there) and log in with the same password.
+
+On a venue network you can also open `http://<board address>/` from any computer or phone on it.
+Choosing the venue's Wi-Fi network in the page makes the board join it and turn its own network off.
+To change the password, edit `http_password` in `/opt/puzzle-configurator/setup.json` (the board's
+Wi-Fi password follows it), then restart `puzzle-configurator` and `timer-ap` or reboot the board.
+
+The board's network and the web page never interfere with the game: they run in separate services
+and the timer does not wait for them. The timer works the same with or without any network.
+
+## Configuring the game
+
+Everything is edited in the web page (tabs **Configuração**, **Sons**, **WiFi / HA**, **Status**):
+game length, robbery speed, freeze time, screen texts, volume, sounds (upload your own), Wi-Fi and
+Home Assistant. **Salvar Configuração** applies it and restarts the timer. The most useful settings:
+
+| Setting | Meaning |
+|---|---|
+| `timer_duration_sec` | length of a game (3600 = 60 min) |
+| `accel_multiplier` | robbery speed, 1-10 (default 2) |
+| `trap_pause_seconds` | freeze after the first player button, 0-30 s (default 3) |
+| `room_name`, `idle_message`, `victory_message`, `game_over_message` | screen texts (`\n` breaks a line) |
+| `victory_timeout_sec` | seconds on the victory or game-over screen before returning to ready |
+| `sound_volume` (0-128), `sounds_enabled`, `background_music_enabled`, `sound_files.*` | sound; the TV's own volume still applies |
+
+The full list and the other ways to configure (SD card, Home Assistant) are under
+[Configuration reference](#configuration-reference).
+
+---
+
+# For installers and developers
+
+Internally the game is one state machine in `firmware/src/main.cpp`:
 `IDLE -> RUNNING_1x -> PAUSE_INITIAL -> RUNNING_2x <-> TRAP_HELD -> SOLVED | GAME_OVER -> IDLE`
 (`RUNNING_2x` is the accelerated state, whatever the factor).
 
@@ -57,32 +124,7 @@ Buttons connect a GPIO pin to ground (internal pull-ups, active low). Pins of th
 `journalctl -u timer-sdl -f` on the board logs every state change, which is the quickest way to
 check the buttons.
 
-## Configuring the board
-
-> **The board's own Wi-Fi access point is the way to configure it.** It is up whenever the board is
-> not connected to a Wi-Fi network - **including when the Ethernet cable is plugged in** - so a phone
-> is all you need; no router or network at the site.
-
-1. Power the board. The network `Nicolau-XXXX` (XXXX = last digits of its Wi-Fi MAC) appears within
-   seconds with the cable plugged in, or after 20 s without it if the saved Wi-Fi did not connect.
-2. Join it from a phone. Password: the web configurator's (default `timersdl1234!` - change it).
-3. Open `http://192.168.4.1` (any address leads there), log in with the same password and edit the
-   settings, upload sounds or pick the venue's Wi-Fi network. The access point turns itself off once
-   the board is connected to that Wi-Fi.
-
-The access point never interferes with the game: it runs in its own services and the timer does not
-wait for it.
-
-### Remote control
-
-The **Jogo** tab of the web configurator drives the game like the buttons in the room: **Play**
-(green, START), the **acceleration switch** (blue and yellow: on = robbery speed, off = 1x TIME TRAP;
-from 1x the first flip starts the robbery with its 3 s freeze), **Stop** (red, access granted) and
-**Reset** (back to the initial condition, from any state). The page sends one word to a local socket
-(`/run/timer-nicolau/control.sock`) and reads a snapshot (`/run/timer-nicolau/game.json`), so neither
-the web nor the game ever waits for the other.
-
-## Configuration
+## Configuration reference
 
 `/etc/timer-sdl/config.json`. The fields the firmware uses:
 
@@ -104,9 +146,9 @@ The game has no time penalty by design: `penalty_seconds`, left in older files, 
 
 There are three ways to change the configuration, all of which end in the same file:
 
-- **Web configurator** - through the board's own access point (see above, the main way) or
-  `http://<board>/` on the local network. Password protected. Also uploads sounds and joins Wi-Fi
-  networks.
+- **Web configurator** - through the board's own Wi-Fi network (see
+  [Connecting](#connecting-to-the-board), the main way) or `http://<board>/` on the local network.
+  Password protected. Also uploads sounds and joins Wi-Fi networks.
 - **SD card** - a folder with `config.json`, optional `sfx/` and optional `wifi.json`, prepared by
   hand or with the Windows configurator (`configurator-windows/`). Insert it with the board off and
   power on; the result is written back to the card as `TIMER-NICOLAU-RESULTADO.txt`.
@@ -121,17 +163,29 @@ There are three ways to change the configuration, all of which end in the same f
 - **Configuration access point.** Up unless the board is on a Wi-Fi network: at once with the cable
   plugged in at boot, after 20 s without a cable if no Wi-Fi connected. It goes off once the Wi-Fi
   client has held an address for 30 s; plugging the cable in later brings it back if there is no
-  Wi-Fi. See [Configuring the board](#configuring-the-board).
+  Wi-Fi. See [Connecting](#connecting-to-the-board).
 
 The timer runs the same with or without any network.
 
-## Display
+## Display and sound
 
-On start the firmware picks the best progressive mode the TV reports (largest, up to 1920x1080 at
-60 Hz; interlaced modes are skipped) and scales every size to it. If the TV is switched on after the
-board, the picture appears as soon as it is detected. The game runs on virtual terminal 2 so boot
-text and the login prompt on terminal 1 never show; for a clean boot add
-`extraargs=quiet systemd.show_status=false vt.global_cursor_default=0` to `/boot/armbianEnv.txt`.
+Any HDMI TV works. On start the firmware picks the best progressive mode the TV reports (largest, up
+to 1920x1080 at 60 Hz; interlaced modes are skipped) and scales every size to it. If the TV is
+switched on after the board, the picture appears as soon as it is detected. Audio goes out over HDMI
+(ALSA `hw:1,0`, the board's HDMI sound card), so the TV's speakers play it; the 3.5 mm jack is not
+used.
+
+For a clean boot the game runs on virtual terminal 2, so the login prompt on terminal 1 never shows;
+add `extraargs=quiet systemd.show_status=false vt.global_cursor_default=0` to `/boot/armbianEnv.txt`
+to hide the boot text as well.
+
+## Remote control internals
+
+The web page sends one word (`play`, `accel`, `stop` or `reset`) to a local UNIX socket
+(`/run/timer-nicolau/control.sock`), read without blocking in the main loop of `timer-sdl`, and reads a
+snapshot (`/run/timer-nicolau/game.json`, rewritten twice a second). Neither side ever waits for the
+other, and the game does not depend on the web or the network. The events are the ones the state
+machine already has for the buttons and MQTT (`start`, `stop`, `trap_on`, `trap_off`, `reset`).
 
 ## Home Assistant
 
