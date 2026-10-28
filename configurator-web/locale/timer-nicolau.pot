@@ -1,0 +1,340 @@
+# Timer-Nicolau web configurator - translations.
+# Edit the msgstr lines. Standard gettext format: any editor or Poedit works.
+msgid ""
+msgstr ""
+"Project-Id-Version: timer-nicolau\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: \n"
+
+msgid "Game length"
+msgstr ""
+
+msgid "Robbery speed (multiplier)"
+msgstr ""
+
+msgid "Freeze when the robbery starts"
+msgstr ""
+
+msgid "Time on the end screen before returning to ready"
+msgstr ""
+
+msgid "Room name"
+msgstr ""
+
+msgid "Ready screen text"
+msgstr ""
+
+msgid "Victory text"
+msgstr ""
+
+msgid "Game over text"
+msgstr ""
+
+msgid "Brightness (%)"
+msgstr ""
+
+msgid "Sounds on"
+msgstr ""
+
+msgid "Sound volume"
+msgstr ""
+
+msgid "Background music on"
+msgstr ""
+
+msgid "Use custom sounds"
+msgstr ""
+
+msgid "MQTT broker"
+msgstr ""
+
+msgid "MQTT port"
+msgstr ""
+
+msgid "MQTT user"
+msgstr ""
+
+msgid "MQTT password"
+msgstr ""
+
+msgid "MQTT topic prefix"
+msgstr ""
+
+msgid "Home Assistant discovery prefix"
+msgstr ""
+
+msgid "Log detail (0-3)"
+msgstr ""
+
+msgid "Tick (each second)"
+msgstr ""
+
+msgid "Alarm (start of the robbery)"
+msgstr ""
+
+msgid "Victory"
+msgstr ""
+
+msgid "Button press"
+msgstr ""
+
+msgid "Button release"
+msgstr ""
+
+msgid "Game over (explosion)"
+msgstr ""
+
+msgid "Background music"
+msgstr ""
+
+msgid "Timer configurator"
+msgstr ""
+
+msgid "Settings"
+msgstr ""
+
+msgid "Game"
+msgstr ""
+
+msgid "Sounds"
+msgstr ""
+
+msgid "Wi-Fi / HA"
+msgstr ""
+
+msgid "Status"
+msgstr ""
+
+msgid "Game control"
+msgstr ""
+
+msgid "Loading..."
+msgstr ""
+
+msgid "Play"
+msgstr ""
+
+msgid "Acceleration"
+msgstr ""
+
+msgid "Stop"
+msgstr ""
+
+msgid "Reset"
+msgstr ""
+
+msgid "Play is the green button (START). The acceleration switch is the yellow and blue buttons: on, the time runs fast; off, at 1x (TIME TRAP). Stop is the red button (grants access). Reset puts the timer back in its initial condition."
+msgstr ""
+
+msgid "Upload sounds"
+msgstr ""
+
+msgid "Pick the channel and upload the file."
+msgstr ""
+
+msgid "System status"
+msgstr ""
+
+msgid "Save settings"
+msgstr ""
+
+msgid "Restart the game"
+msgstr ""
+
+msgid "Connection error"
+msgstr ""
+
+msgid "Settings saved!"
+msgstr ""
+
+msgid "Error: {0}"
+msgstr ""
+
+msgid "Game restarted!"
+msgstr ""
+
+msgid "Choose a file"
+msgstr ""
+
+msgid "Upload OK!"
+msgstr ""
+
+msgid "Upload finished"
+msgstr ""
+
+msgid "Scanning..."
+msgstr ""
+
+msgid "No network found."
+msgstr ""
+
+msgid "Signal"
+msgstr ""
+
+msgid "Use"
+msgstr ""
+
+msgid "Type the network name"
+msgstr ""
+
+msgid "Type the password"
+msgstr ""
+
+msgid "Connected to {0}"
+msgstr ""
+
+msgid "connection failed"
+msgstr ""
+
+msgid "Access point: {0}"
+msgstr ""
+
+msgid "on"
+msgstr ""
+
+msgid "Access point error: {0}"
+msgstr ""
+
+msgid "Could not load the status"
+msgstr ""
+
+msgid "Waiting for the game to start"
+msgstr ""
+
+msgid "Running at 1x, waiting for the first button"
+msgstr ""
+
+msgid "Acceleration starting"
+msgstr ""
+
+msgid "Acceleration ON"
+msgstr ""
+
+msgid "Acceleration OFF (TIME TRAP active)"
+msgstr ""
+
+msgid "Access granted"
+msgstr ""
+
+msgid "Time is up"
+msgstr ""
+
+msgid "Game unavailable"
+msgstr ""
+
+msgid "{0} left"
+msgstr ""
+
+msgid "Acceleration on"
+msgstr ""
+
+msgid "Acceleration off"
+msgstr ""
+
+msgid "Grant access and end the game?"
+msgstr ""
+
+msgid "Reset the timer to its initial condition?"
+msgstr ""
+
+msgid "Could not send the command"
+msgstr ""
+
+msgid "No configurable fields."
+msgstr ""
+
+msgid "General"
+msgstr ""
+
+msgid "Wi-Fi connection"
+msgstr ""
+
+msgid "Join a Wi-Fi network"
+msgstr ""
+
+msgid "Scan networks"
+msgstr ""
+
+msgid "Network name (SSID)"
+msgstr ""
+
+msgid "Password"
+msgstr ""
+
+msgid "Wi-Fi password"
+msgstr ""
+
+msgid "Connect"
+msgstr ""
+
+msgid "Access point mode"
+msgstr ""
+
+msgid "Turn on the access point to configure without a Wi-Fi network. Name:"
+msgstr ""
+
+msgid "Turn the access point on/off"
+msgstr ""
+
+msgid "MQTT / Home Assistant"
+msgstr ""
+
+msgid "Upload"
+msgstr ""
+
+msgid "Leave blank to keep the current password"
+msgstr ""
+
+msgid "Use \\n or Enter to start a new line on the TV"
+msgstr ""
+
+msgid "(s)"
+msgstr ""
+
+msgid "No sound configured."
+msgstr ""
+
+msgid "none"
+msgstr ""
+
+msgid "Project"
+msgstr ""
+
+msgid "Settings file"
+msgstr ""
+
+msgid "OK"
+msgstr ""
+
+msgid "missing"
+msgstr ""
+
+msgid "Service"
+msgstr ""
+
+msgid "Sound files"
+msgstr ""
+
+msgid "{0} files"
+msgstr ""
+
+msgid "Version"
+msgstr ""
+
+msgid "Game status"
+msgstr ""
+
+msgid "IP"
+msgstr ""
+
+msgid "Uptime"
+msgstr ""
+
+msgid "Configurator - Login"
+msgstr ""
+
+msgid "Settings password"
+msgstr ""
+
+msgid "Sign in"
+msgstr ""

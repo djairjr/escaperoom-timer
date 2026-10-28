@@ -85,9 +85,15 @@ and the timer does not wait for them. The timer works the same with or without a
 ## Configuring the game
 
 Everything is edited in the web page (tabs **Game**, **Settings**, **Sounds**, **Wi-Fi / HA**, **Status**).
-The page speaks the language of your browser (English and Brazilian Portuguese; the selector at the top
-changes it). To add a language, copy `configurator-web/puzzle_configurator/locales/en.json` to
-`<code>.json`, translate the values and it appears in the selector; keys left out fall back to English.
+The page speaks the **language of the board's Linux locale** (Brazilian Portuguese and English are
+included), with no setting in the page. Change it the usual way on the board, then restart the page
+service: `sudo dpkg-reconfigure locales` (or `sudo localectl set-locale LANG=pt_BR.UTF-8`) and
+`sudo systemctl restart puzzle-configurator`. A language without a catalog shows in English.
+Translations are standard gettext `.po` files, plain text you edit with any editor or Poedit:
+`/usr/share/timer-nicolau/locale/<locale>/LC_MESSAGES/timer-nicolau.po`. Put your own copy in
+`/etc/timer-nicolau/locale/<locale>/LC_MESSAGES/timer-nicolau.po` (it wins and survives upgrades); to add a
+language copy `timer-nicolau.pot` there, translate the `msgstr` lines and set `X-Native-Name`.
+In the source tree `scripts/gettext-update.py` keeps the catalogs in step with the code.
 You can edit:
 game length, robbery speed, freeze time, screen texts, volume, sounds (upload your own), Wi-Fi and
 Home Assistant. **Save settings** (*Salvar configuração*) applies it and restarts the timer. The most useful settings:

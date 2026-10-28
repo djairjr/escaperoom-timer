@@ -43,8 +43,12 @@ install -Dm755 configurator-web/scripts/timer-watcher.sh "$WEB/scripts/timer-wat
 for f in configurator-web/puzzle_configurator/*.py; do
     install -Dm644 "$f" "$WEB/puzzle_configurator/$(basename "$f")"
 done
-for f in configurator-web/puzzle_configurator/locales/*.json; do
-    install -Dm644 "$f" "$WEB/puzzle_configurator/locales/$(basename "$f")"
+# gettext catalogs: the template and one .po per language (edit in /etc/timer-nicolau/locale)
+LOC="$STAGE/usr/share/timer-nicolau/locale"
+install -Dm644 configurator-web/locale/timer-nicolau.pot "$LOC/timer-nicolau.pot"
+for f in configurator-web/locale/*/LC_MESSAGES/timer-nicolau.po; do
+    lang=$(basename "$(dirname "$(dirname "$f")")")
+    install -Dm644 "$f" "$LOC/$lang/LC_MESSAGES/timer-nicolau.po"
 done
 for f in configurator-web/static/*; do
     install -Dm644 "$f" "$WEB/static/$(basename "$f")"

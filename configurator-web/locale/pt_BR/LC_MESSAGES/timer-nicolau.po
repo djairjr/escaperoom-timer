@@ -1,0 +1,341 @@
+# Timer-Nicolau web configurator - translations.
+# Edit the msgstr lines. Standard gettext format: any editor or Poedit works.
+msgid ""
+msgstr ""
+"Project-Id-Version: timer-nicolau\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: pt_BR\n"
+"X-Native-Name: Português (Brasil)\n"
+
+msgid "Game length"
+msgstr "Duração do jogo"
+
+msgid "Robbery speed (multiplier)"
+msgstr "Velocidade do roubo (multiplicador)"
+
+msgid "Freeze when the robbery starts"
+msgstr "Congelamento ao iniciar o roubo"
+
+msgid "Time on the end screen before returning to ready"
+msgstr "Tempo na tela final antes de voltar ao início"
+
+msgid "Room name"
+msgstr "Nome da sala"
+
+msgid "Ready screen text"
+msgstr "Texto da tela de espera"
+
+msgid "Victory text"
+msgstr "Texto de vitória"
+
+msgid "Game over text"
+msgstr "Texto de fim de jogo"
+
+msgid "Brightness (%)"
+msgstr "Brilho (%)"
+
+msgid "Sounds on"
+msgstr "Sons ligados"
+
+msgid "Sound volume"
+msgstr "Volume do som"
+
+msgid "Background music on"
+msgstr "Música de fundo ligada"
+
+msgid "Use custom sounds"
+msgstr "Usar sons personalizados"
+
+msgid "MQTT broker"
+msgstr "Broker MQTT"
+
+msgid "MQTT port"
+msgstr "Porta MQTT"
+
+msgid "MQTT user"
+msgstr "Usuário MQTT"
+
+msgid "MQTT password"
+msgstr "Senha MQTT"
+
+msgid "MQTT topic prefix"
+msgstr "Prefixo dos tópicos MQTT"
+
+msgid "Home Assistant discovery prefix"
+msgstr "Prefixo de descoberta do Home Assistant"
+
+msgid "Log detail (0-3)"
+msgstr "Detalhe do log (0-3)"
+
+msgid "Tick (each second)"
+msgstr "Tique (a cada segundo)"
+
+msgid "Alarm (start of the robbery)"
+msgstr "Alarme (início do roubo)"
+
+msgid "Victory"
+msgstr "Vitória"
+
+msgid "Button press"
+msgstr "Botão pressionado"
+
+msgid "Button release"
+msgstr "Botão solto"
+
+msgid "Game over (explosion)"
+msgstr "Fim de jogo (explosão)"
+
+msgid "Background music"
+msgstr "Música de fundo"
+
+msgid "Timer configurator"
+msgstr "Configurador do timer"
+
+msgid "Settings"
+msgstr "Configurações"
+
+msgid "Game"
+msgstr "Jogo"
+
+msgid "Sounds"
+msgstr "Sons"
+
+msgid "Wi-Fi / HA"
+msgstr "WiFi / HA"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Game control"
+msgstr "Controle do jogo"
+
+msgid "Loading..."
+msgstr "Carregando..."
+
+msgid "Play"
+msgstr "Play"
+
+msgid "Acceleration"
+msgstr "Aceleração"
+
+msgid "Stop"
+msgstr "Stop"
+
+msgid "Reset"
+msgstr "Reset"
+
+msgid "Play is the green button (START). The acceleration switch is the yellow and blue buttons: on, the time runs fast; off, at 1x (TIME TRAP). Stop is the red button (grants access). Reset puts the timer back in its initial condition."
+msgstr "Play equivale ao botão verde (START). O interruptor de aceleração equivale aos botões azul e amarelo: ligado, o tempo corre acelerado; desligado, a 1x (TIME TRAP). Stop equivale ao botão vermelho (libera o acesso). Reset volta o timer à condição inicial."
+
+msgid "Upload sounds"
+msgstr "Upload de sons"
+
+msgid "Pick the channel and upload the file."
+msgstr "Selecione o canal e faça o upload do arquivo."
+
+msgid "System status"
+msgstr "Status do sistema"
+
+msgid "Save settings"
+msgstr "Salvar configuração"
+
+msgid "Restart the game"
+msgstr "Reiniciar o jogo"
+
+msgid "Connection error"
+msgstr "Erro de conexão"
+
+msgid "Settings saved!"
+msgstr "Configuração salva!"
+
+msgid "Error: {0}"
+msgstr "Erro: {0}"
+
+msgid "Game restarted!"
+msgstr "Jogo reiniciado!"
+
+msgid "Choose a file"
+msgstr "Selecione um arquivo"
+
+msgid "Upload OK!"
+msgstr "Upload concluído!"
+
+msgid "Upload finished"
+msgstr "Upload finalizado"
+
+msgid "Scanning..."
+msgstr "Escaneando..."
+
+msgid "No network found."
+msgstr "Nenhuma rede encontrada."
+
+msgid "Signal"
+msgstr "Sinal"
+
+msgid "Use"
+msgstr "Usar"
+
+msgid "Type the network name"
+msgstr "Digite o nome da rede"
+
+msgid "Type the password"
+msgstr "Digite a senha"
+
+msgid "Connected to {0}"
+msgstr "Conectado a {0}"
+
+msgid "connection failed"
+msgstr "falha na conexão"
+
+msgid "Access point: {0}"
+msgstr "Ponto de acesso: {0}"
+
+msgid "on"
+msgstr "ligado"
+
+msgid "Access point error: {0}"
+msgstr "Erro no ponto de acesso: {0}"
+
+msgid "Could not load the status"
+msgstr "Não foi possível carregar o status"
+
+msgid "Waiting for the game to start"
+msgstr "Aguardando o início do jogo"
+
+msgid "Running at 1x, waiting for the first button"
+msgstr "Jogo a 1x, aguardando o primeiro botão"
+
+msgid "Acceleration starting"
+msgstr "Início da aceleração"
+
+msgid "Acceleration ON"
+msgstr "Aceleração LIGADA"
+
+msgid "Acceleration OFF (TIME TRAP active)"
+msgstr "Aceleração DESLIGADA (TIME TRAP ativo)"
+
+msgid "Access granted"
+msgstr "Acesso liberado"
+
+msgid "Time is up"
+msgstr "Tempo esgotado"
+
+msgid "Game unavailable"
+msgstr "Jogo indisponível"
+
+msgid "{0} left"
+msgstr "restam {0}"
+
+msgid "Acceleration on"
+msgstr "Aceleração ligada"
+
+msgid "Acceleration off"
+msgstr "Aceleração desligada"
+
+msgid "Grant access and end the game?"
+msgstr "Liberar o acesso e encerrar o jogo?"
+
+msgid "Reset the timer to its initial condition?"
+msgstr "Reiniciar o timer para a condição inicial?"
+
+msgid "Could not send the command"
+msgstr "Não foi possível enviar o comando"
+
+msgid "No configurable fields."
+msgstr "Nenhum campo configurável."
+
+msgid "General"
+msgstr "Geral"
+
+msgid "Wi-Fi connection"
+msgstr "Conexão WiFi"
+
+msgid "Join a Wi-Fi network"
+msgstr "Conectar a uma rede WiFi"
+
+msgid "Scan networks"
+msgstr "Escanear redes"
+
+msgid "Network name (SSID)"
+msgstr "Nome da rede (SSID)"
+
+msgid "Password"
+msgstr "Senha"
+
+msgid "Wi-Fi password"
+msgstr "Senha da rede WiFi"
+
+msgid "Connect"
+msgstr "Conectar"
+
+msgid "Access point mode"
+msgstr "Modo ponto de acesso"
+
+msgid "Turn on the access point to configure without a Wi-Fi network. Name:"
+msgstr "Ative o ponto de acesso para configurar sem rede WiFi. Nome:"
+
+msgid "Turn the access point on/off"
+msgstr "Ligar/desligar o ponto de acesso"
+
+msgid "MQTT / Home Assistant"
+msgstr "MQTT / Home Assistant"
+
+msgid "Upload"
+msgstr "Upload"
+
+msgid "Leave blank to keep the current password"
+msgstr "Deixe em branco para manter a senha atual"
+
+msgid "Use \\n or Enter to start a new line on the TV"
+msgstr "Use \\n ou Enter para pular linha na TV"
+
+msgid "(s)"
+msgstr "(s)"
+
+msgid "No sound configured."
+msgstr "Nenhum som configurado."
+
+msgid "none"
+msgstr "nenhum"
+
+msgid "Project"
+msgstr "Projeto"
+
+msgid "Settings file"
+msgstr "Arquivo de configuração"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "missing"
+msgstr "ausente"
+
+msgid "Service"
+msgstr "Serviço"
+
+msgid "Sound files"
+msgstr "Arquivos de som"
+
+msgid "{0} files"
+msgstr "{0} arquivos"
+
+msgid "Version"
+msgstr "Versão"
+
+msgid "Game status"
+msgstr "Status do jogo"
+
+msgid "IP"
+msgstr "IP"
+
+msgid "Uptime"
+msgstr "Tempo ligado"
+
+msgid "Configurator - Login"
+msgstr "Configurador - Login"
+
+msgid "Settings password"
+msgstr "Senha de configuração"
+
+msgid "Sign in"
+msgstr "Entrar"
