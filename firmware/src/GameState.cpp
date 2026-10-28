@@ -4,6 +4,7 @@ std::string state_name(GameState s) {
     switch (s) {
         case GameState::IDLE: return "idle";
         case GameState::RUNNING_1x: return "running_1x";
+        case GameState::PAUSE_INITIAL: return "pause_initial";
         case GameState::RUNNING_2x: return "running_2x";
         case GameState::TRAP_HELD: return "trap_held";
         case GameState::SOLVED: return "solved";

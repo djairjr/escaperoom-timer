@@ -73,6 +73,15 @@ check the buttons.
 The access point never interferes with the game: it runs in its own services and the timer does not
 wait for it.
 
+### Remote control
+
+The **Jogo** tab of the web configurator drives the game like the buttons in the room: **Play**
+(green, START), the **acceleration switch** (blue and yellow: on = robbery speed, off = 1x TIME TRAP;
+from 1x the first flip starts the robbery with its 3 s freeze), **Stop** (red, access granted) and
+**Reset** (back to the initial condition, from any state). The page sends one word to a local socket
+(`/run/timer-nicolau/control.sock`) and reads a snapshot (`/run/timer-nicolau/game.json`), so neither
+the web nor the game ever waits for the other.
+
 ## Configuration
 
 `/etc/timer-sdl/config.json`. The fields the firmware uses:

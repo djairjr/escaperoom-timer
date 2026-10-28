@@ -7,6 +7,8 @@ Autenticação: POST /login com cookie httponly. NUNCA na URL.
 
 import json
 import os
+import socket
+import time
 import logging
 from flask import request, jsonify, current_app, make_response, redirect
 
@@ -240,6 +242,40 @@ def register_routes(app):
             return jsonify(status_data)
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+
+    # === API: Remote control of the game (play, accel toggle, stop) ===
+    # The game listens on a local datagram socket and publishes a small snapshot; this app only
+    # sends one word and reads the file, so neither side waits for the other.
+    @app.route('/api/game', methods=['GET'])
+    @_auth_required
+    def api_game():
+        path = _get_setup('game_state_path', '/run/timer-nicolau/game.json')
+        try:
+            if time.time() - os.path.getmtime(path) > 5:
+                return jsonify({'available': False})
+            with open(path) as f:
+                data = json.load(f)
+            data['available'] = True
+            return jsonify(data)
+        except (OSError, ValueError):
+            return jsonify({'available': False})
+
+    @app.route('/api/control', methods=['POST'])
+    @_auth_required
+    def api_control():
+        action = (request.get_json(silent=True) or {}).get('action', '')
+        if action not in ('play', 'accel', 'stop', 'reset'):
+            return jsonify({'success': False, 'error': 'acao invalida'}), 400
+        sock_path = _get_setup('control_socket', '/run/timer-nicolau/control.sock')
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        try:
+            sock.settimeout(1)
+            sock.sendto(action.encode(), sock_path)
+            return jsonify({'success': True})
+        except OSError as e:
+            return jsonify({'success': False, 'error': str(e)}), 503
+        finally:
+            sock.close()
 
     # === API: Reload ===
     @app.route('/api/reload', methods=['POST'])

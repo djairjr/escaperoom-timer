@@ -69,13 +69,34 @@ class FormGenerator:
         </header>
         
         <nav class="tabs">
-            <button class="tab active" data-tab="config">Configuração</button>
+            <button class="tab active" data-tab="game">Jogo</button>
+            <button class="tab" data-tab="config">Configuração</button>
             <button class="tab" data-tab="sounds">Sons</button>
             <button class="tab" data-tab="wifi">WiFi / HA</button>
             <button class="tab" data-tab="status">Status</button>
         </nav>
         
-        <div id="tab-config" class="tab-content active">
+        <div id="tab-game" class="tab-content active">
+            <h2>Controle do jogo</h2>
+            <p id="game-state" class="hint">Carregando...</p>
+            <div class="form-actions">
+                <button type="button" id="play-btn" class="btn btn-primary" onclick="control('play')" disabled>Play</button>
+                <label class="switch-row">
+                    <span class="switch">
+                        <input type="checkbox" id="accel-sw" onchange="control('accel')" disabled>
+                        <span class="slider"></span>
+                    </span>
+                    <span id="accel-label">Aceleração</span>
+                </label>
+                <button type="button" id="stop-btn" class="btn btn-secondary" onclick="control('stop')" disabled>Stop</button>
+                <button type="button" id="reset-btn" class="btn btn-secondary" onclick="control('reset')" disabled>Reset</button>
+            </div>
+            <p class="hint">Play equivale ao botão verde (START). O interruptor de aceleração equivale aos botões azul e
+            amarelo: ligado, o tempo corre acelerado; desligado, a 1x (TIME TRAP). Stop equivale ao botão vermelho
+            (libera o acesso). Reset volta o timer à condição inicial.</p>
+        </div>
+
+        <div id="tab-config" class="tab-content">
             <form id="config-form" onsubmit="return saveConfig(event)">
                 {config_html}
             </form>
@@ -306,6 +327,46 @@ class FormGenerator:
     }}
     
     loadStatus();
+
+    function loadGame() {{
+        api('GET', '/api/game', null, function(g, code) {{
+            var play = document.getElementById('play-btn');
+            var accel = document.getElementById('accel-sw');
+            var accelLabel = document.getElementById('accel-label');
+            var stop = document.getElementById('stop-btn');
+            var reset = document.getElementById('reset-btn');
+            var info = document.getElementById('game-state');
+            play.disabled = accel.disabled = stop.disabled = reset.disabled = true;
+            accel.checked = false;
+            if (code !== 200 || !g.available) {{
+                info.textContent = 'Jogo indisponivel';
+                return;
+            }}
+            var t = (g.remaining_s !== undefined) ? ' - restam ' + Math.floor(g.remaining_s / 60) + ':' + ('0' + (g.remaining_s % 60)).slice(-2) : '';
+            var names = {{idle: 'Aguardando o início do jogo', running_1x: 'Jogo a 1x, aguardando o primeiro botão',
+                         pause_initial: 'Início da aceleração', running_2x: 'Aceleração LIGADA',
+                         trap_held: 'Aceleração DESLIGADA (TIME TRAP ativo)', solved: 'Acesso liberado', game_over: 'Tempo esgotado'}};
+            info.textContent = (names[g.state] || g.state) + t;
+            play.disabled = !(g.state === 'idle' || g.state === 'solved' || g.state === 'game_over');
+            accel.disabled = !(g.state === 'running_1x' || g.state === 'running_2x' || g.state === 'trap_held');
+            accel.checked = (g.state === 'running_2x' || g.state === 'pause_initial');
+            accelLabel.textContent = 'Aceleração ' + (accel.checked ? 'ligada' : 'desligada');
+            reset.disabled = (g.state === 'idle');
+            stop.disabled = !(g.state === 'running_1x' || g.state === 'pause_initial' || g.state === 'running_2x' || g.state === 'trap_held');
+        }});
+    }}
+
+    function control(action) {{
+        if (action === 'stop' && !confirm('Liberar o acesso e encerrar o jogo?')) return;
+        if (action === 'reset' && !confirm('Reiniciar o timer para a condição inicial?')) return;
+        api('POST', '/api/control', {{action: action}}, function(resp, code) {{
+            if (code !== 200) toast('Nao foi possivel enviar o comando', 'error');
+            setTimeout(loadGame, 300);
+        }});
+    }}
+
+    loadGame();
+    setInterval(loadGame, 1000);
     </script>
 </body>
 </html>'''

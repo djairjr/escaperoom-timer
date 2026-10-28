@@ -37,6 +37,7 @@ set(SOURCES
     src/Display.cpp
     src/Audio.cpp
     src/MQTTClient.cpp
+    src/Control.cpp
 )
 
 add_executable(timer-sdl ${SOURCES})

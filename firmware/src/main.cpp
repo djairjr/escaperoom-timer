@@ -5,6 +5,7 @@
 #include "Display.h"
 #include "Audio.h"
 #include "MQTTClient.h"
+#include "Control.h"
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <chrono>
@@ -51,6 +52,7 @@ int main() {
     bool first_button_assigned = false;
     int trap_btn = -1, roubo_btn = -1;
     bool trap_held = false;
+    bool trap_remote = false;   // trap switched on from the web / MQTT: held until trap_off, no button involved
     int pause_remaining_ms = 0;
     bool display_update = true;
     int freeze_mins = 0, freeze_secs = 0;
@@ -97,6 +99,10 @@ int main() {
 
     mqtt.init(cfg);
 
+    Control control;
+    if (!control.init()) std::cerr << "Remote control unavailable.\n";
+    Uint32 last_ctrl_ms = 0;
+
     display.render_ready(cfg.room_name, cfg.idle_message);
     mqtt.publish_state(GameState::IDLE);
     mqtt.publish_disarmed(false);
@@ -134,6 +140,9 @@ int main() {
         if (state == GameState::PAUSE_INITIAL)
             pause_remaining_ms -= dt_ms;
 
+        // Remote control from the web configurator takes the same path as an MQTT command
+        { std::string rc = control.poll(); if (!rc.empty()) pending_cmd = rc; }
+
         // Consumir comando MQTT pendente
         std::string cmd = pending_cmd;
         pending_cmd.clear();
@@ -142,6 +151,30 @@ int main() {
         // FSM ÚNICA — transições centralizadas
         // ========================================================
         GameState prev = state;
+
+        // Remote "play" is the START button; "stop" is the STOP/DISARM event the FSM already handles.
+        if (cmd == "play") cmd = "start";
+
+        // Remote "accel" toggle = the blue and yellow buttons. At 1x it is the first button (freeze,
+        // then the robbery speed); at the robbery speed it is the second button held (TIME TRAP,
+        // 1x); while the trap is on it is that button released (robbery speed again).
+        if (cmd == "accel") {
+            if (state == GameState::RUNNING_1x) {
+                first_button_assigned = true;
+                roubo_btn = 65; trap_btn = 66;
+                int r = timer.get_time_remaining_ms() / 1000;
+                freeze_mins = r / 60;
+                freeze_secs = r % 60;
+                state = GameState::PAUSE_INITIAL;
+                pause_remaining_ms = pause_ms;
+                display_update = false;
+                timer.set_speed_multiplier(0);
+                LOG(1, "State: PAUSE_INITIAL (" << pause_ms / 1000 << "s, remote)");
+                cmd.clear();
+            } else if (state == GameState::RUNNING_2x) cmd = "trap_on";
+            else if (state == GameState::TRAP_HELD) cmd = "trap_off";
+            else cmd.clear();
+        }
 
         switch (state) {
             case GameState::IDLE:
@@ -198,8 +231,9 @@ int main() {
                 if (cmd == "trap_on") {
                     state = GameState::TRAP_HELD;
                     trap_held = true;
+                    trap_remote = true;
                     timer.set_speed_multiplier(1);
-                    LOG(1, "State: TRAP_HELD (via MQTT)");
+                    LOG(1, "State: TRAP_HELD (remote)");
                     break;
                 }
                 bool trap_now = (trap_btn == 65) ? gpio.is_button_a_low() : gpio.is_button_b_low();
@@ -227,9 +261,11 @@ int main() {
                     state = GameState::RUNNING_2x;
                     timer.set_speed_multiplier(accel);
                     trap_held = false;
-                    LOG(1, "State: RUNNING_2x (trap released via MQTT)");
+                    trap_remote = false;
+                    LOG(1, "State: RUNNING_2x (trap released, remote)");
                     break;
                 }
+                if (trap_remote) { timer.set_speed_multiplier(1); break; }
                 bool trap_now = (trap_btn == 65) ? gpio.is_button_a_low() : gpio.is_button_b_low();
                 if (trap_now) {
                     trap_debounce = std::min(3, trap_debounce + 1);
@@ -272,7 +308,11 @@ int main() {
             // START/reset só após som do estado terminal terminar
             bool terminal_sound_playing = (state == GameState::SOLVED && audio.is_victory_playing())
                                        || (state == GameState::GAME_OVER && audio.is_penalty_alarm_playing());
-            if (!terminal_sound_playing && (now - solved_start > 500)) {
+            if (cmd == "reset") {
+                // Explicit reset (web, MQTT): back to the initial condition now, cutting the sound.
+                state = GameState::IDLE;
+                LOG(1, "State: IDLE (reset)");
+            } else if (!terminal_sound_playing && (now - solved_start > 500)) {
                 if (cmd == "reset" || cmd == "start" || sp) {
                     state = GameState::IDLE;
                     LOG(1, "State: IDLE (start/reset after terminal sound)");
@@ -304,7 +344,7 @@ int main() {
                     timer.reset();
                     gpio.set_disarmed(false);
                     first_button_assigned = false;
-                    trap_btn = -1; roubo_btn = -1; trap_held = false;
+                    trap_btn = -1; roubo_btn = -1; trap_held = false; trap_remote = false;
                     last_second = -1;
                     audio.start_background_music();
                     mqtt.publish_state(GameState::IDLE);
@@ -390,6 +430,13 @@ int main() {
                     published_solved = true;
                 }
                 break;
+        }
+
+        if (now - last_ctrl_ms >= 500) {
+            last_ctrl_ms = now;
+            bool accel_on = state == GameState::PAUSE_INITIAL || state == GameState::RUNNING_2x || state == GameState::TRAP_HELD;
+            control.publish("{\"state\": \"" + state_name(state) + "\", \"accel\": " + (accel_on ? "true" : "false")
+                            + ", \"remaining_s\": " + std::to_string(timer.get_time_remaining_ms() / 1000) + "}\n");
         }
 
         if (now - last_mqtt_ms > 1000) {
