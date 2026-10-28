@@ -178,5 +178,9 @@ sudo apt install ./timer-nicolau-system_<version>_all.deb ./timer-nicolau-firmwa
 
 ## License
 
-[MIT](LICENSE). The bundled DSEG14 font is by keshikan under the SIL Open Font License 1.1
-([firmware/fonts/OFL.txt](firmware/fonts/OFL.txt)).
+The code is under the [MIT license](LICENSE). The bundled DSEG14 font is by keshikan under the SIL
+Open Font License 1.1 ([firmware/fonts/OFL.txt](firmware/fonts/OFL.txt)).
+
+**The name and logo of Nicolau dos Brinquedos** (`configurator-web/static/logoNicolaudosBrinquedos.svg`,
+`configurator-windows/icone.ico` and the matching texts of the web configurator) are the author's
+brand and are **not** covered by the MIT license: replace them in your own builds.
