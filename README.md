@@ -175,3 +175,8 @@ sudo apt install ./timer-nicolau-system_<version>_all.deb ./timer-nicolau-firmwa
 - Network design and the failures behind it: [docs/network-design.md](docs/network-design.md).
 - Firmware cross-built in a container and shipped as `timer-nicolau-firmware_<version>_armhf.deb`
   (`packaging/firmware/`); it replaces the board-built binary through a systemd drop-in.
+
+## License
+
+[MIT](LICENSE). The bundled DSEG14 font is by keshikan under the SIL Open Font License 1.1
+([firmware/fonts/OFL.txt](firmware/fonts/OFL.txt)).
