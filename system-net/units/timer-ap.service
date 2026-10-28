@@ -1,0 +1,10 @@
+[Unit]
+Description=Timer-Nicolau configuration access point
+After=network.target
+Conflicts=hostapd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/timer-nicolau/timer-ap start
+ExecStop=/usr/lib/timer-nicolau/timer-ap stop

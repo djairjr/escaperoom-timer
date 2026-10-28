@@ -1,0 +1,35 @@
+#!/bin/bash
+# timer-wifi-scan - print visible Wi-Fi networks as JSON: [{"ssid": "...", "signal": -40}, ...]
+#
+# Scans on $CLIENT_IFACE. That interface shares the radio with the access point (rtl8189fs), and a
+# scan takes the radio off the AP channel long enough to drop every phone joined to it. So while
+# timer-ap.service is up this prints the list timer-ap saved just before raising the AP, and
+# only scans live when the AP is down (or with --live).
+set -uo pipefail
+LOG_TAG=timer-wifi-scan
+# shellcheck source=common.sh
+. /usr/lib/timer-nicolau/common.sh
+
+CACHE="$RUN_DIR/scan.json"
+
+if [ "${1:-}" != "--live" ] && systemctl is-active --quiet timer-ap.service && [ -s "$CACHE" ]; then
+    cat "$CACHE"
+    exit 0
+fi
+
+ip link set "$CLIENT_IFACE" up 2>/dev/null
+iw dev "$CLIENT_IFACE" scan 2>/dev/null | python3 -c '
+import json, sys
+nets, cur = {}, None
+for line in sys.stdin:
+    line = line.strip()
+    if line.startswith("BSS "):
+        cur = {"ssid": "", "signal": -100}
+    elif cur is not None and line.startswith("signal:"):
+        cur["signal"] = int(float(line.split()[1]))
+    elif cur is not None and line.startswith("SSID:"):
+        cur["ssid"] = line[5:].strip()
+        if cur["ssid"] and cur["signal"] > nets.get(cur["ssid"], -1000):
+            nets[cur["ssid"]] = cur["signal"]
+print(json.dumps([{"ssid": s, "signal": v} for s, v in sorted(nets.items(), key=lambda kv: -kv[1])]))
+'

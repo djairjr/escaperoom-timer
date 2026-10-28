@@ -1,0 +1,13 @@
+[Unit]
+Description=Timer-Nicolau network policy (cable wins over Wi-Fi; access point when no network at boot)
+After=systemd-networkd.service
+Wants=systemd-networkd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/timer-nicolau/timer-net-fallback
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

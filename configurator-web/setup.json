@@ -1,0 +1,13 @@
+{
+    "project_name": "Timer-Nicolau",
+    "config_path": "/etc/timer-sdl/config.json",
+    "service_name": "timer-sdl.service",
+    "sfx_path": "/var/lib/timer-nicolau/sfx/",
+    "ap_prefix": "Nicolau",
+    "http_port": 80,
+    "http_password": "timersdl1234!",
+    "wifi_iface_ap": "wlan0",
+    "wifi_iface_client": "wlan1",
+    "network_manager": "systemd-networkd",
+    "wpa_config_path": "/etc/wpa_supplicant/wpa_supplicant.conf"
+}

@@ -1,0 +1,96 @@
+#!/bin/bash
+# timer-net-fallback - network policy of the board, running for as long as the system is up.
+#
+# 1. Cable wins: while $ETH_IFACE has carrier the Wi-Fi client (wpa_supplicant@$CLIENT_IFACE) is
+#    kept down; without carrier it runs, if a network was saved. The board is never on the same
+#    subnet through two interfaces for longer than a password check: that state was seen letting
+#    a router learn the board through the wrong MAC and lose it until the router rebooted.
+# 2. Access point: it is the way to configure the board, so it is up unless the board is on a
+#    Wi-Fi network. With the cable plugged it comes up at once (a cable never makes it
+#    unnecessary: the phone that configures the board is not on the cable's network). Without a cable it waits up to
+#    BOOT_WAIT seconds for the Wi-Fi client to associate. It goes down once the Wi-Fi client has
+#    held an address for 30 s in a row, and comes back at the next boot or when the cable is
+#    plugged in. Losing the Wi-Fi later does not raise it again, so a game never loses its network
+#    to a blip. This script never touches timer-sdl: the game does not depend on the network.
+set -uo pipefail
+LOG_TAG=timer-net-fallback
+# shellcheck source=common.sh
+. /usr/lib/timer-nicolau/common.sh
+
+WPA_UNIT="wpa_supplicant@$CLIENT_IFACE.service"
+WPA_CONF="$WPA_CONF_DIR/wpa_supplicant-$CLIENT_IFACE.conf"
+
+cable_up() { [ "$(cat "/sys/class/net/$ETH_IFACE/carrier" 2>/dev/null)" = 1 ]; }
+
+# timer-wifi-connect is checking a password; it stops the client itself when done. The 60 s
+# bound keeps a stale flag from leaving Wi-Fi up next to the cable.
+validating() {
+    local f="$RUN_DIR/wifi-validating"
+    [ -f "$f" ] && [ $(( $(date +%s) - $(stat -c %Y "$f") )) -lt 60 ]
+}
+
+apply_wifi_policy() {
+    if cable_up; then
+        if systemctl is-active --quiet "$WPA_UNIT" && ! validating; then
+            log "cable on $ETH_IFACE: stopping the Wi-Fi client"
+            systemctl stop "$WPA_UNIT"
+            ip addr flush dev "$CLIENT_IFACE" 2>/dev/null
+        fi
+    elif [ -f "$WPA_CONF" ] && ! systemctl is-active --quiet "$WPA_UNIT"; then
+        log "no cable on $ETH_IFACE: starting the Wi-Fi client"
+        systemctl start "$WPA_UNIT"
+    fi
+}
+
+# The Wi-Fi client is associated and holds an IPv4 address.
+wifi_connected() {
+    iw dev "$CLIENT_IFACE" link 2>/dev/null | grep -q '^Connected to' \
+        && [ -n "$(ip -4 -o addr show dev "$CLIENT_IFACE" 2>/dev/null)" ]
+}
+
+ap_active() { systemctl is-active --quiet timer-ap.service; }
+
+# Phase 1: boot. With a cable the access point comes up now. Without one, wait for the Wi-Fi
+# client, keeping the policy applied meanwhile.
+waited=0
+if cable_up; then
+    apply_wifi_policy
+    log "cable on $ETH_IFACE at boot; starting access point (cable does not replace it)"
+else
+    while [ "$waited" -lt "$BOOT_WAIT" ]; do
+        apply_wifi_policy
+        if wifi_connected; then
+            log "Wi-Fi connected after ${waited}s; access point not needed"
+            break
+        fi
+        cable_up && break
+        sleep 5
+        waited=$((waited + 5))
+    done
+fi
+if ! wifi_connected; then
+    log "no Wi-Fi connection (waited ${waited}s); starting access point"
+    systemctl start timer-ap.service
+fi
+
+# Phase 2: steady state.
+stable=0
+while true; do
+    sleep 5
+    apply_wifi_policy
+    if ap_active; then
+        if wifi_connected; then
+            stable=$((stable + 5))
+            if [ "$stable" -ge 30 ]; then
+                log "Wi-Fi connected for ${stable}s; stopping access point"
+                systemctl stop timer-ap.service
+            fi
+        else
+            stable=0
+        fi
+    elif cable_up && ! wifi_connected && ! validating; then
+        # Cable plugged after boot, with the Wi-Fi client gone: configuration must stay reachable.
+        log "cable on $ETH_IFACE and no Wi-Fi; starting access point"
+        systemctl start timer-ap.service
+    fi
+done

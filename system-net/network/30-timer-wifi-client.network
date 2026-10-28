@@ -1,0 +1,14 @@
+# Wi-Fi client of Timer-Nicolau: wpa_supplicant@wlan1 associates, systemd-networkd does DHCP.
+# Never add a second DHCP client (dhcpcd, dhclient) next to networkd: see
+# /usr/share/doc/timer-nicolau-system/network-design.md.
+# The cable (end0, metric 100) wins over Wi-Fi (metric 600) when both are up.
+[Match]
+Name=wlan1
+
+[Network]
+DHCP=ipv4
+IPv6AcceptRA=no
+LinkLocalAddressing=no
+
+[DHCPv4]
+RouteMetric=600

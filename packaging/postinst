@@ -1,0 +1,33 @@
+#!/bin/sh
+# postinst for timer-nicolau-system: product user, data directories, units.
+set -e
+
+[ "$1" = "configure" ] || exit 0
+
+# Product user: a system account (no login) that runs the web configurator and owns the sounds
+# and the sandbox the web configurator writes its requests to.
+TIMER_USER=timersdl
+DATA=/var/lib/timer-nicolau
+if ! id "$TIMER_USER" >/dev/null 2>&1; then
+    useradd --system --user-group --home-dir "$DATA" --no-create-home --shell /usr/sbin/nologin "$TIMER_USER"
+fi
+install -d -o "$TIMER_USER" -g "$TIMER_USER" "$DATA" "$DATA/sfx"
+install -d -o "$TIMER_USER" -g "$TIMER_USER" -m 755 /sandbox /sandbox/config /sandbox/sfx /sandbox/wifi /sandbox/ap /sandbox/reload
+
+# hostapd is driven by timer-ap.service only; Debian's own unit would start it at boot with
+# whatever /etc/hostapd/hostapd.conf holds.
+systemctl disable --now hostapd.service >/dev/null 2>&1 || true
+systemctl mask hostapd.service >/dev/null 2>&1 || true
+
+systemctl daemon-reload
+udevadm control --reload-rules || true
+networkctl reload || true
+sysctl -q -p /usr/lib/sysctl.d/60-timer-nicolau-arp.conf || true
+
+# The Wi-Fi client is started by timer-net-fallback only while the cable is out, never at boot:
+# cable and Wi-Fi on one subnet together confuse routers (see 60-timer-nicolau-arp.conf).
+systemctl disable wpa_supplicant@wlan1.service >/dev/null 2>&1 || true
+systemctl enable timer-net-fallback.service timer-watcher.service puzzle-configurator.service >/dev/null
+systemctl restart timer-net-fallback.service timer-watcher.service puzzle-configurator.service
+
+exit 0

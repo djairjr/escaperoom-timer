@@ -1,0 +1,25 @@
+#!/bin/bash
+# timer-maintenance on|off|status - keep timer-sdl from running so the console can be used.
+# "on" persists across reboots until "off"; see 10-timer-nicolau-maintenance.conf.
+set -euo pipefail
+LOG_TAG=timer-maintenance
+# shellcheck source=common.sh
+. /usr/lib/timer-nicolau/common.sh
+
+FLAG=/etc/timer-sdl/maintenance
+
+case "${1:-status}" in
+    on)
+        touch "$FLAG"
+        systemctl stop "$TIMER_SERVICE"
+        log "maintenance on: $TIMER_SERVICE stopped and kept off until 'timer-maintenance off'" ;;
+    off)
+        rm -f "$FLAG" "$RUN_DIR/maintenance"
+        systemctl start "$TIMER_SERVICE"
+        log "maintenance off: $TIMER_SERVICE started" ;;
+    status)
+        if [ -e "$FLAG" ]; then echo "on (persistent: $FLAG)"
+        elif [ -e "$RUN_DIR/maintenance" ]; then echo "on (this boot: SD card)"
+        else echo "off"; fi ;;
+    *) echo "usage: timer-maintenance on|off|status" >&2; exit 2 ;;
+esac

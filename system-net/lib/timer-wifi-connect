@@ -1,0 +1,77 @@
+#!/bin/bash
+# timer-wifi-connect SSID [PASSWORD] - join a Wi-Fi network on $CLIENT_IFACE and keep it across reboots.
+#
+# wpa_supplicant@$CLIENT_IFACE associates and systemd-networkd does DHCP
+# (30-timer-wifi-client.network). The access point shares the radio, so it is stopped while
+# connecting and brought back if the attempt fails. Prints "OK <ip>" or "FAIL <reason>".
+set -uo pipefail
+LOG_TAG=timer-wifi-connect
+# shellcheck source=common.sh
+. /usr/lib/timer-nicolau/common.sh
+
+ssid=${1:-}
+pass=${2:-}
+[ -n "$ssid" ] || { echo "FAIL empty SSID"; exit 2; }
+if [ -n "$pass" ] && { [ "${#pass}" -lt 8 ] || [ "${#pass}" -gt 63 ]; }; then
+    echo "FAIL WPA password must have 8 to 63 characters"; exit 2
+fi
+
+conf="$WPA_CONF_DIR/wpa_supplicant-$CLIENT_IFACE.conf"
+new=$(mktemp)
+{
+    echo "ctrl_interface=DIR=/run/wpa_supplicant GROUP=netdev"
+    echo "update_config=0"
+    echo "country=BR"
+    if [ -n "$pass" ]; then
+        # wpa_passphrase quotes the SSID safely and stores the derived key, not the password.
+        wpa_passphrase "$ssid" "$pass" | grep -v '^[[:space:]]*#psk='
+    else
+        printf 'network={\n\tssid=%s\n\tkey_mgmt=NONE\n}\n' "$(printf '%s' "$ssid" | od -An -tx1 | tr -d ' \n')"
+    fi
+} > "$new"
+install -m 600 "$new" "$conf"
+rm -f "$new"
+
+ap_was_up=0
+if systemctl is-active --quiet timer-ap.service; then
+    ap_was_up=1
+    log "stopping access point while joining '$ssid'"
+    systemctl stop timer-ap.service
+fi
+
+# While this flag exists timer-net-fallback leaves the client up even with the cable in; without
+# it the policy stopped wpa_supplicant 1 s into the check and every password "failed".
+mkdir -p "$RUN_DIR"
+touch "$RUN_DIR/wifi-validating"
+trap 'rm -f "$RUN_DIR/wifi-validating"' EXIT
+
+# Not enabled at boot: timer-net-fallback starts the client only while the cable is out.
+systemctl restart "wpa_supplicant@$CLIENT_IFACE.service"
+
+ip_addr=""
+for _ in $(seq 1 20); do
+    sleep 2
+    ip_addr=$(ip -4 -o addr show "$CLIENT_IFACE" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)
+    [ -n "$ip_addr" ] && break
+done
+
+if [ -n "$ip_addr" ]; then
+    log "joined '$ssid' on $CLIENT_IFACE, address $ip_addr"
+    if [ "$(cat "/sys/class/net/$ETH_IFACE/carrier" 2>/dev/null)" = 1 ]; then
+        # Password proven; with the cable in, the board stays on the cable only.
+        systemctl stop "wpa_supplicant@$CLIENT_IFACE.service"
+        ip addr flush dev "$CLIENT_IFACE" 2>/dev/null
+        log "cable present on $ETH_IFACE: Wi-Fi saved, used when the cable is unplugged"
+        echo "OK $ip_addr (salvo; usado quando o cabo for desconectado)"
+    else
+        echo "OK $ip_addr"
+    fi
+    exit 0
+fi
+
+log "could not join '$ssid' within 40 s"
+if [ "$ap_was_up" = 1 ]; then
+    systemctl start timer-ap.service
+fi
+echo "FAIL no address from '$ssid' (wrong password or network out of range)"
+exit 1

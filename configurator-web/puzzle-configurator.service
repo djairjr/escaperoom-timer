@@ -1,0 +1,24 @@
+[Unit]
+Description=puzzle-configurator — Configurador Universal Web para Puzzles Escape Room
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=timersdl
+Group=timersdl
+WorkingDirectory=/opt/puzzle-configurator
+ExecStart=/usr/bin/python3 /opt/puzzle-configurator/server.py --setup /opt/puzzle-configurator/setup.json
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# No filesystem sandboxing: the web user writes requests into /sandbox, the root watcher applies them
+NoNewPrivileges=yes
+ProtectHome=no
+ProtectKernelTunables=no
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

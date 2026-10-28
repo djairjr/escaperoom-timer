@@ -1,0 +1,5 @@
+# Timer-Nicolau: a card with a filesystem in an MMC slot starts the configuration import.
+# The mount happens in timer-sd-import@.service, never here: udev runs RUN+= programs in a private
+# mount namespace and kills long-running ones, so a mount done there is invisible and short-lived.
+# timer-sd-import skips the disk the system boots from.
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="mmcblk[0-9]*", ENV{ID_FS_USAGE}=="filesystem", TAG+="systemd", ENV{SYSTEMD_WANTS}+="timer-sd-import@%k.service"

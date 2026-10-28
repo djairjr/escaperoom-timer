@@ -1,0 +1,135 @@
+#!/bin/bash
+# timer-sd-import /dev/<partition> - apply a configuration package from an SD card.
+#
+# Started by udev (99-timer-nicolau-sd.rules) through timer-sd-import@<kernel name>.service, at
+# boot or on insertion. A package is a folder, at the card root or one level below it, holding
+# config.json and/or wifi.json (plus optional sfx/). Applied once per content: the hash of what
+# was applied is stored on the card, so a card left in the slot is not re-applied at every boot.
+# The outcome is written to the card as TIMER-NICOLAU-RESULTADO.txt, readable on Windows.
+set -uo pipefail
+LOG_TAG=timer-sd-import
+# shellcheck source=common.sh
+. /usr/lib/timer-nicolau/common.sh
+
+dev=${1:?usage: timer-sd-import /dev/<partition>}
+[ -b "$dev" ] || die "$dev is not a block device"
+
+# Never touch the disk the system runs from.
+root_disk=$(lsblk -no PKNAME "$(findmnt -no SOURCE /)" 2>/dev/null)
+this_disk=$(lsblk -no PKNAME "$dev" 2>/dev/null)
+[ -n "$this_disk" ] || this_disk=$(basename "$dev")
+if [ -n "$root_disk" ] && [ "$this_disk" = "$root_disk" ]; then
+    exit 0
+fi
+
+mnt="$RUN_DIR/sd-$(basename "$dev")"
+mkdir -p "$mnt"
+# Right after insertion the card can still be busy (probing, another reader); retry for 10 s.
+mounted=0
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if mount -o rw,noatime "$dev" "$mnt" 2>/dev/null; then mounted=1; break; fi
+    sleep 1
+done
+[ "$mounted" = 1 ] || die "could not mount $dev"
+cleanup() { sync; umount "$mnt" 2>/dev/null; rmdir "$mnt" 2>/dev/null; }
+trap cleanup EXIT
+
+pkg=""
+# A file named MANUTENCAO (any case, any extension) at the card root keeps timer-sdl off for this
+# boot, for console work; removing the card and rebooting returns to normal.
+if find "$mnt" -maxdepth 1 -type f -iname 'manutencao*' | grep -q .; then
+    mkdir -p "$RUN_DIR"
+    touch "$RUN_DIR/maintenance"
+    systemctl stop "$TIMER_SERVICE"
+    log "$dev: MANUTENCAO on the card: $TIMER_SERVICE stopped for this boot"
+fi
+
+for d in "$mnt" "$mnt"/*/; do
+    d=${d%/}
+    if [ -f "$d/config.json" ] || [ -f "$d/wifi.json" ]; then pkg=$d; break; fi
+done
+if [ -z "$pkg" ]; then
+    log "$dev: no config.json or wifi.json at the root or one folder below; nothing to do"
+    exit 0
+fi
+
+report="$pkg/TIMER-NICOLAU-RESULTADO.txt"
+stamp="$pkg/.timer-nicolau-applied"
+digest=$(cat "$pkg/config.json" "$pkg/wifi.json" 2>/dev/null | sha256sum | cut -d' ' -f1)
+if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$digest" ]; then
+    log "$dev: package in ${pkg#"$mnt"}/ already applied; skipping"
+    exit 0
+fi
+
+{
+    echo "Timer-Nicolau - importacao do cartao SD"
+    echo "Data: $(date '+%d/%m/%Y %H:%M')"
+    echo "Placa: $(hostname)"
+    echo "Pasta: ${pkg#"$mnt"}/"
+    echo
+} > "$report"
+note() { log "$*"; echo "$*" >> "$report"; }
+failed=0
+
+if [ -f "$pkg/config.json" ]; then
+    if python3 -c '
+import json, sys
+c = json.load(open(sys.argv[1], encoding="utf-8-sig"))
+sys.exit(0 if isinstance(c, dict) and "timer_duration_sec" in c else 1)
+' "$pkg/config.json" 2>/dev/null; then
+        cp -p "$CONFIG_JSON" "$CONFIG_JSON.bkp.$(date +%Y%m%d_%H%M%S)" 2>/dev/null
+        # Strip a UTF-8 BOM (Notepad adds one) while copying.
+        python3 -c '
+import sys
+data = open(sys.argv[1], encoding="utf-8-sig").read()
+open(sys.argv[2], "w", encoding="utf-8").write(data)
+' "$pkg/config.json" "$CONFIG_JSON" && chmod 644 "$CONFIG_JSON"
+        note "OK  config.json aplicado (backup do anterior em $CONFIG_JSON.bkp.*)"
+    else
+        note "ERRO config.json invalido (JSON quebrado ou sem timer_duration_sec): a configuracao NAO foi alterada"
+        failed=1
+    fi
+fi
+
+if [ -d "$pkg/sfx" ]; then
+    n=0
+    shopt -s nullglob nocaseglob
+    for f in "$pkg/sfx/"*.mp3 "$pkg/sfx/"*.wav "$pkg/sfx/"*.ogg "$pkg/sfx/"*.flac; do
+        cp -f "$f" "$SFX_DIR/" && n=$((n + 1))
+    done
+    shopt -u nullglob nocaseglob
+    chown -R "$TIMER_USER:$TIMER_USER" "$SFX_DIR"
+    note "OK  $n arquivo(s) de som copiado(s) para $SFX_DIR"
+fi
+
+if [ -f "$pkg/wifi.json" ]; then
+    creds=$(python3 -c '
+import json, sys
+w = json.load(open(sys.argv[1], encoding="utf-8-sig"))
+print(w.get("ssid", "")); print(w.get("password", ""))
+' "$pkg/wifi.json" 2>/dev/null)
+    ssid=$(sed -n 1p <<< "$creds")
+    pass=$(sed -n 2p <<< "$creds")
+    if [ -n "$ssid" ]; then
+        result=$(/usr/lib/timer-nicolau/timer-wifi-connect "$ssid" "$pass" 2>&1 | tail -1)
+        case "$result" in
+            OK*) note "OK  Wi-Fi '$ssid' conectado, endereco ${result#OK }" ;;
+            *) note "ERRO Wi-Fi '$ssid': ${result#FAIL }"; failed=1 ;;
+        esac
+    else
+        note "ERRO wifi.json sem o campo ssid"
+        failed=1
+    fi
+fi
+
+if [ -f "$pkg/config.json" ] || [ -d "$pkg/sfx" ]; then
+    systemctl restart "$TIMER_SERVICE" && note "OK  timer reiniciado com a nova configuracao"
+fi
+
+if [ "$failed" = 0 ]; then
+    echo "$digest" > "$stamp"
+    echo >> "$report"; echo "Concluido. O cartao pode ser removido." >> "$report"
+else
+    echo >> "$report"; echo "Houve erro. Corrija e reinsira o cartao (ou reinicie a placa)." >> "$report"
+fi
+exit 0

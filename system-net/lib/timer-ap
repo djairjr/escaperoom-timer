@@ -1,0 +1,106 @@
+#!/bin/bash
+# timer-ap start|stop|status - configuration access point on $AP_IFACE.
+#
+# hostapd for the radio, dnsmasq for DHCP and a catch-all DNS that points every name at the
+# board (captive portal). dnsmasq is bound to the AP interface only, so it never meets
+# systemd-resolved on port 53, and it is a DHCP *server*: it does not touch UDP 546, the port
+# a second DHCP client would steal from systemd-networkd (docs/network-design.md).
+# Run through timer-ap.service; the daemons live in that unit's cgroup.
+set -euo pipefail
+LOG_TAG=timer-ap
+# shellcheck source=common.sh
+. /usr/lib/timer-nicolau/common.sh
+
+AP_RUN="$RUN_DIR/ap"
+
+stop_ap() {
+    for p in dnsmasq hostapd; do
+        if [ -f "$AP_RUN/$p.pid" ]; then
+            kill "$(cat "$AP_RUN/$p.pid")" 2>/dev/null || true
+            rm -f "$AP_RUN/$p.pid"
+        fi
+    done
+    ip addr flush dev "$AP_IFACE" 2>/dev/null || true
+    ip link set "$AP_IFACE" down 2>/dev/null || true
+}
+
+start_ap() {
+    [ -d "/sys/class/net/$AP_IFACE" ] || die "interface $AP_IFACE not found"
+    local ssid pass channel freq net
+    ssid=$(ap_ssid)
+    pass=$(ap_passphrase)
+    [ "${#pass}" -ge 8 ] && [ "${#pass}" -le 63 ] || die "AP passphrase must have 8 to 63 characters"
+
+    # rtl8189fs runs wlan0 and wlan1 on one radio: while the client is associated the AP must use
+    # the client's channel.
+    channel=$AP_CHANNEL
+    freq=$(iw dev "$CLIENT_IFACE" link 2>/dev/null | awk '/freq:/ {print int($2)}')
+    if [ -n "$freq" ] && [ "$freq" -ge 2412 ] && [ "$freq" -le 2472 ]; then
+        channel=$(( (freq - 2407) / 5 ))
+    fi
+
+    stop_ap
+    mkdir -p "$AP_RUN"
+    chmod 755 "$AP_RUN"
+    net=${AP_ADDR%.*}
+
+    # Last chance to scan without hurting anyone: once the AP is up, a scan on the shared radio
+    # drops the phones joined to it. The web configurator's network list comes from this file.
+    /usr/lib/timer-nicolau/timer-wifi-scan --live > "$RUN_DIR/scan.json.tmp" 2>/dev/null \
+        && mv -f "$RUN_DIR/scan.json.tmp" "$RUN_DIR/scan.json"
+
+    install -m 600 /dev/null "$AP_RUN/hostapd.conf"
+    cat > "$AP_RUN/hostapd.conf" <<EOF
+interface=$AP_IFACE
+driver=nl80211
+ssid=$ssid
+country_code=BR
+hw_mode=g
+channel=$channel
+wmm_enabled=1
+auth_algs=1
+ignore_broadcast_ssid=0
+wpa=2
+wpa_key_mgmt=WPA-PSK
+rsn_pairwise=CCMP
+wpa_passphrase=$pass
+EOF
+
+    cat > "$AP_RUN/dnsmasq.conf" <<EOF
+interface=$AP_IFACE
+bind-interfaces
+except-interface=lo
+listen-address=$AP_ADDR
+no-resolv
+no-hosts
+address=/#/$AP_ADDR
+dhcp-range=$net.10,$net.100,255.255.255.0,1h
+dhcp-option=option:router,$AP_ADDR
+dhcp-option=option:dns-server,$AP_ADDR
+dhcp-authoritative
+dhcp-leasefile=$AP_RUN/dnsmasq.leases
+pid-file=$AP_RUN/dnsmasq.pid
+log-dhcp
+log-facility=$AP_RUN/dnsmasq.log
+EOF
+
+    ip addr flush dev "$AP_IFACE"
+    ip addr add "$AP_ADDR/24" dev "$AP_IFACE"
+    hostapd -B -P "$AP_RUN/hostapd.pid" -f "$AP_RUN/hostapd.log" "$AP_RUN/hostapd.conf"
+    ip link set "$AP_IFACE" up
+    dnsmasq --conf-file="$AP_RUN/dnsmasq.conf"
+    log "access point up: SSID=$ssid channel=$channel address=$AP_ADDR iface=$AP_IFACE"
+}
+
+case "${1:-}" in
+    start) start_ap ;;
+    stop) stop_ap; log "access point down" ;;
+    status)
+        # /proc, not kill -0: kill needs privileges over a root process, a status query does not.
+        if [ -f "$AP_RUN/hostapd.pid" ] && [ -d "/proc/$(cat "$AP_RUN/hostapd.pid")" ]; then
+            echo "up $(ap_ssid)"
+        else
+            echo "down"; exit 3
+        fi ;;
+    *) echo "usage: $0 start|stop|status" >&2; exit 2 ;;
+esac

@@ -1,0 +1,8 @@
+[Unit]
+Description=Timer-Nicolau configuration import from SD card %I
+BindsTo=dev-%i.device
+After=dev-%i.device
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/timer-nicolau/timer-sd-import /dev/%I

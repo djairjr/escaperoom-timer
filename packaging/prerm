@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+if [ "$1" = "remove" ]; then
+    systemctl stop timer-net-fallback.service timer-ap.service timer-watcher.service >/dev/null 2>&1 || true
+    systemctl disable timer-net-fallback.service timer-watcher.service >/dev/null 2>&1 || true
+    systemctl unmask hostapd.service >/dev/null 2>&1 || true
+fi
+exit 0

@@ -1,0 +1,14 @@
+# Build trees (firmware and packaging) are reproducible from the sources.
+/firmware/build*/
+/dist/
+
+# Windows configurator: PyInstaller / Inno Setup output.
+/configurator-windows/build/
+/configurator-windows/dist/
+/configurator-windows/installer_output/
+
+__pycache__/
+*.pyc
+
+# Real device configuration carries credentials; only config/config.example.json is versioned.
+/config/config.json

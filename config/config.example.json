@@ -1,0 +1,32 @@
+{
+    "timer_duration_sec": 3600,
+    "trap_pause_seconds": 2,
+    "penalty_seconds": 120,
+    "accel_multiplier": 3,
+    "victory_timeout_sec": 600,
+    "brightness_pct": 80,
+    "room_name": "SALA B",
+    "idle_message": "AMBIENTE\nSEGURO",
+    "victory_message": "ACESSO LIBERADO",
+    "game_over_message": "BOMBA EXPLODIU",
+    "sounds_enabled": true,
+    "custom_sounds_enabled": true,
+    "background_music_enabled": true,
+    "sound_volume": 64,
+    "log_verbosity": 1,
+    "sound_files": {
+        "tick": "/var/lib/timer-nicolau/sfx/tick.mp3",
+        "alarm": "/var/lib/timer-nicolau/sfx/error.mp3",
+        "victory": "/var/lib/timer-nicolau/sfx/sucess.mp3",
+        "button_press": "/var/lib/timer-nicolau/sfx/keypress.mp3",
+        "button_release": "/var/lib/timer-nicolau/sfx/keypress.mp3",
+        "penalty_alarm": "/var/lib/timer-nicolau/sfx/boom.mp3",
+        "background_music": "/var/lib/timer-nicolau/sfx/soundtrack.wav"
+    },
+    "mqtt_broker": "",
+    "mqtt_port": 0,
+    "mqtt_username": "",
+    "mqtt_password": "CHANGE_ME",
+    "mqtt_topic_prefix": "nicolau/timer/",
+    "ha_discovery_prefix": "homeassistant"
+}
